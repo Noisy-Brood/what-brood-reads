@@ -1,0 +1,9 @@
+{
+  "name": "what-brood-reads",
+  "private": true,
+  "description": "The code that reads, and the checks that police it.",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
