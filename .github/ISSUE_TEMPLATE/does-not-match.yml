@@ -1,0 +1,32 @@
+name: The code does not do what it says
+description: A read that asks for more than the README says, or a check that lets one through.
+title: "Does not match: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reading it. Point to the code; nothing else is needed.
+
+        Please do not paste mail, message headers or anything else from a mailbox, yours or anyone's. A security problem is reported privately, from this repository's Security and quality tab, never here.
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: A file and line, or a link to them.
+      placeholder: apps/web/src/server/gmail/observe.ts, line 40
+    validations:
+      required: true
+  - type: textarea
+    id: says
+    attributes:
+      label: What it says
+      description: What the README, a comment or the check says this code does.
+    validations:
+      required: true
+  - type: textarea
+    id: does
+    attributes:
+      label: What it does
+      description: What you read the code as doing instead, and how you can tell.
+    validations:
+      required: true

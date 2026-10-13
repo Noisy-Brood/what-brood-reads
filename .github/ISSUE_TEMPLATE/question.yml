@@ -1,0 +1,15 @@
+name: A question about what this code reads
+description: Something about a read, a header or the check that the README does not answer.
+title: "Question: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask about the code here. Please do not paste mail, message headers or anything else from a mailbox, yours or anyone's.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Name the file it is about, if it is about one.
+    validations:
+      required: true

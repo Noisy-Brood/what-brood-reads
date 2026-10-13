@@ -1,8 +1,10 @@
 # Reporting a security problem
 
 If you have found a way to reach something you should not be able to, or a way
-round what this code promises, write to **security@noisybrood.com**. It reaches a
-person, not a queue.
+round what this code promises, report it privately: from this repository's
+**Security and quality** tab, with **Report a vulnerability**, or by writing to
+**security@noisybrood.com**. Either reaches a person, not a queue. Never in an
+issue, which anyone can read.
 
 Please include what you found, how to reproduce it, and what you believe it lets
 someone do. We acknowledge within three business days, keep you informed until it

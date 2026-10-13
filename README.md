@@ -1,12 +1,15 @@
 # What Brood reads
 
+[![The check, on the latest copy](https://github.com/Noisy-Brood/what-brood-reads/actions/workflows/check.yml/badge.svg)](https://github.com/Noisy-Brood/what-brood-reads/actions/workflows/check.yml)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+
 Brood holds a permission to read a mailbox and promises never to read what is in
 it. This repository is the code that does the reading, published so the promise
 can be checked rather than taken on trust.
 
 It is a one-way copy. The code is written, reviewed and deployed elsewhere, in a
 private repository, and copied here by that repository's CI whenever it changes.
-Nothing here is edited by hand, and pull requests are not merged: this is evidence,
+Nothing here is edited by hand, and it takes no pull requests: this is evidence,
 not a library.
 
 ## What each read path shows, and what it does not
@@ -43,9 +46,16 @@ node scripts/verify_gmail_reads.mjs
 
 The same commands run in this repository's CI on every copy.
 
-## Reporting a problem
+## Questions, and code that does not match
 
-security@noisybrood.com. See `SECURITY.md`.
+Open an issue: there is a form for a question, and one for a read that does not
+do what this README or the check says. Point to the code. Please never paste
+mail or message headers from a mailbox, yours or anyone's.
+
+## Reporting a security problem
+
+Privately, never in an issue: from this repository's Security and quality tab, or
+to security@noisybrood.com. See `SECURITY.md`.
 
 ## Licence
 
