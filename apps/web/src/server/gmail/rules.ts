@@ -419,10 +419,12 @@ const onlyKeys = (o: object, allowed: readonly string[]) =>
  * is one guard; the sweep's other is that it removes only what a record vouches
  * for, comparing the sender and home read here against it (review of #296).
  *
- * Whether Gmail hands `negatedQuery` back exactly as it was written is not
- * documented and has not been tried, since trying needs a filter created on a
- * real mailbox. If it rewrites the text, nothing matches this shape and a sweep
- * removes nothing, which is the safe way for that to be wrong.
+ * Gmail does not document whether it hands `negatedQuery` back exactly as
+ * written. Its own export of the filters Brood installed in a real mailbox
+ * held them as written (#1108), and every filter Brood makes is read back
+ * through `broodCriteriaOf` as it is created (`heldAsSent`), so a rewritten
+ * one fails there, loudly. If it ever rewrote the text, nothing would match
+ * this shape and a sweep would remove nothing, the safe way to be wrong.
  */
 export function broodRuleOf(rule: ProviderRule): BroodRule | null {
   const read = broodCriteriaOf(rule.criteria);
