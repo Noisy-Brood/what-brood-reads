@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.png">
+  <img alt="Noisy Brood: What Brood reads" src=".github/banner-light.png">
+</picture>
+
 # What Brood reads
 
 [![The check, on the latest copy](https://github.com/Noisy-Brood/what-brood-reads/actions/workflows/check.yml/badge.svg)](https://github.com/Noisy-Brood/what-brood-reads/actions/workflows/check.yml)
