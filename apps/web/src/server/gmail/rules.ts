@@ -425,10 +425,28 @@ const onlyKeys = (o: object, allowed: readonly string[]) =>
  * removes nothing, which is the safe way for that to be wrong.
  */
 export function broodRuleOf(rule: ProviderRule): BroodRule | null {
-  const c = rule.criteria ?? {};
+  const read = broodCriteriaOf(rule.criteria);
+  if (!read) return null;
   const a = rule.action ?? {};
-  if (!onlyKeys(c, ["query", "negatedQuery"])) return null;
   if (!onlyKeys(a, ["addLabelIds", "removeLabelIds"])) return null;
+  const adds = a.addLabelIds ?? [];
+  const removes = a.removeLabelIds ?? [];
+  if (adds.length !== 1 || adds[0] === "INBOX") return null;
+  if (removes.length !== 1 || removes[0] !== "INBOX") return null;
+  return { ...read, home: adds[0]! };
+}
+
+/**
+ * A filter's criteria read as Brood's, or null: the half of `broodRuleOf`
+ * about what it matches, the one reader both the sweep and a new filter's
+ * read-back use (`heldAsSent`), so a filter one accepts the other can read
+ * (review of #1150).
+ */
+export function broodCriteriaOf(
+  criteria: ProviderRule["criteria"],
+): Omit<BroodRule, "home"> | null {
+  const c = criteria ?? {};
+  if (!onlyKeys(c, ["query", "negatedQuery"])) return null;
   const query = c.query ?? "";
   if (!TERM.test(query)) return null;
   const all = (c.negatedQuery ?? "").split(" OR ");
@@ -441,10 +459,6 @@ export function broodRuleOf(rule: ProviderRule): BroodRule | null {
     .map((t) => TAG.exec(t.slice("from:".length)))
     .filter((m): m is RegExpExecArray => m !== null);
   if (tags.length !== 1) return null;
-  const adds = a.addLabelIds ?? [];
-  const removes = a.removeLabelIds ?? [];
-  if (adds.length !== 1 || adds[0] === "INBOX") return null;
-  if (removes.length !== 1 || removes[0] !== "INBOX") return null;
   const value = query.slice("from:".length);
   // Once each: a filter that repeats a term carves out nothing more, and a
   // repeat would read as a difference from the record on every sweep.
@@ -460,7 +474,6 @@ export function broodRuleOf(rule: ProviderRule): BroodRule | null {
       ruleId: `${h!.slice(0, 8)}-${h!.slice(8, 12)}-${h!.slice(12, 16)}-${h!.slice(16, 20)}-${h!.slice(20)}`,
     },
     from: { kind: value.includes("@") ? "address" : "domain", value },
-    home: adds[0]!,
     exclude,
     excludeCc: [...new Set(copied.map((t) => t.slice("cc:".length)))].sort(),
   };
@@ -491,6 +504,37 @@ export function renderRule(
     query: term(scope.from.kind, scope.from.value),
     negatedQuery: terms.length ? terms.join(" OR ") : null,
   };
+}
+
+/**
+ * Whether the criteria Gmail holds for a filter it has just made carve out
+ * everything sent (#659): read by the sweep's own reader (`broodCriteriaOf`),
+ * the same rule, the same sender, and every carve-out sent among the ones
+ * held. A filter that reader cannot read is not as sent, so nothing the
+ * read-back accepts is one the sweep could not later recognise (review of
+ * #1150).
+ *
+ * A filter holding less than was sent would file mail the person listed to
+ * keep in view, with nothing to say so: every entry on the list rides in every
+ * filter, so a long list is where a provider would shorten one. Gmail
+ * documents no limit on a query's length; this makes a shortened one fail
+ * loudly, whatever the limit is.
+ */
+export function heldAsSent(
+  sent: { scope: RuleScope; identity: RuleIdentity },
+  held: ProviderRule["criteria"],
+): boolean {
+  const read = broodCriteriaOf(held);
+  if (!read) return false;
+  const { scope, identity } = sent;
+  return (
+    read.identity.installation === identity.installation &&
+    read.identity.ruleId === identity.ruleId &&
+    read.from.kind === scope.from.kind &&
+    read.from.value === scope.from.value &&
+    scope.exclude.every((v) => read.exclude.includes(v)) &&
+    (scope.excludeCc ?? []).every((v) => read.excludeCc.includes(v))
+  );
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   ownRuleOf,
   homeAtProvider,
   quietedHomeAtProvider,
+  heldAsSent,
   renderRule,
   ruleTag,
   searchFor,
@@ -174,7 +175,7 @@ const provider = (over: {
     },
     filters: {
       get: over.filterGet ?? (async () => ({ data: {} })),
-      create: over.filterCreate ?? (async () => ({ data: { id: `F${++n}` } })),
+      create: over.filterCreate ?? (async (p) => made(`F${++n}`)(p)),
       delete: over.filterDelete ?? (async () => ({ data: undefined })),
       list: over.filterList ?? (async () => ({ data: {} })),
     },
@@ -187,6 +188,14 @@ const provider = (over: {
 
 type Users = ProviderClient["users"];
 type Filters = Users["settings"]["filters"];
+
+/**
+ * Gmail's answer to filters.create: the filter it made, its criteria with it,
+ * as the reference says. `heldAsSent` reads them back (#659).
+ */
+const made =
+  (id: string): Filters["create"] =>
+  async (p) => ({ data: { id, criteria: p?.requestBody?.criteria } });
 
 describe("a rule's tag (#291)", () => {
   it("names the installation and the rule, under .invalid", () => {
@@ -959,9 +968,118 @@ describe("a quieted home (#393)", () => {
   });
 });
 
+describe("what Gmail holds of a filter it made (#659)", () => {
+  const sent = {
+    scope: domain("vendor.com", ["a.com", "b@c.com"]),
+    identity: ME,
+  };
+  const held = (negatedQuery: string, query = "from:vendor.com") => ({
+    query,
+    negatedQuery,
+  });
+
+  it("is as sent when every carve-out is held, in any order", () => {
+    expect(
+      heldAsSent(sent, held(`from:b@c.com OR from:${TAG} OR from:a.com`)),
+    ).toBe(true);
+  });
+
+  it("is not as sent when a carve-out is missing, as a shortened query would be", () => {
+    expect(heldAsSent(sent, held(`from:a.com OR from:${TAG}`))).toBe(false);
+  });
+
+  it("is not as sent when the sender is not the one sent", () => {
+    expect(
+      heldAsSent(
+        sent,
+        held(`from:a.com OR from:b@c.com OR from:${TAG}`, "from:other.com"),
+      ),
+    ).toBe(false);
+  });
+
+  it("is not as sent when the tag names another rule", () => {
+    expect(
+      heldAsSent(
+        {
+          ...sent,
+          identity: { ...ME, ruleId: "11111111-1111-1111-1111-111111111111" },
+        },
+        held(`from:a.com OR from:b@c.com OR from:${TAG}`),
+      ),
+    ).toBe(false);
+  });
+
+  it("is not as sent in a form the sweep could not read, extra spacing included (review of #1150)", () => {
+    expect(
+      heldAsSent(sent, held(`from:a.com  OR from:b@c.com OR from:${TAG}`)),
+    ).toBe(false);
+  });
+
+  it("is not as sent when Gmail answers with no criteria at all", () => {
+    expect(heldAsSent(sent, undefined)).toBe(false);
+  });
+});
+
 describe("installing a rule", () => {
+  it("takes the filter back out and fails when Gmail holds less than was sent (#659)", async () => {
+    const deleted: string[] = [];
+    await expect(
+      mailboxOver(
+        provider({
+          filterCreate: async () => ({
+            data: {
+              id: "Fshort",
+              criteria: {
+                query: "from:vendor.com",
+                negatedQuery: `from:${TAG}`,
+              },
+            },
+          }),
+          filterDelete: async ({ id }) => {
+            deleted.push(id ?? "");
+            return { data: undefined };
+          },
+        }),
+      ).installRule(domain("vendor.com", ["security@vendor.com"]), "L1", ME),
+    ).rejects.toBeInstanceOf(ProviderRequestError);
+    expect(deleted).toEqual(["Fshort"]);
+  });
+
+  it("tries the cleanup again once, then says the filter was left for the sweep (review of #1150)", async () => {
+    const short = async () => ({
+      data: {
+        id: "Fshort",
+        criteria: { query: "from:vendor.com", negatedQuery: `from:${TAG}` },
+      },
+    });
+    const install = (fails: number) => {
+      const tries: string[] = [];
+      const done = mailboxOver(
+        provider({
+          filterCreate: short,
+          filterDelete: async ({ id }) => {
+            tries.push(id ?? "");
+            if (tries.length <= fails)
+              throw Object.assign(new Error("x"), { status: 500 });
+            return { data: undefined };
+          },
+        }),
+      ).installRule(domain("vendor.com", ["security@vendor.com"]), "L1", ME);
+      return { done, tries };
+    };
+    // The code reaches the log through failureCode, so which happened is read.
+    const once = install(1);
+    await expect(once.done).rejects.toMatchObject({ reason: "notHeldAsSent" });
+    expect(once.tries).toEqual(["Fshort", "Fshort"]);
+    const twice = install(2);
+    await expect(twice.done).rejects.toMatchObject({
+      reason: "shortFilterLeft",
+    });
+    expect(twice.tries).toEqual(["Fshort", "Fshort"]);
+  });
+
   it("files into the home and out of the inbox, with the carve-out", async () => {
-    const filterCreate = vi.fn(async (_p: unknown) => ({ data: { id: "F9" } }));
+    const filterCreate = vi.fn(made("F9"));
     const id = await mailboxOver(provider({ filterCreate })).installRule(
       domain("vendor.com", ["security@vendor.com"]),
       "L1",
@@ -981,7 +1099,7 @@ describe("installing a rule", () => {
   });
 
   it("carries its tag even with nothing else carved out (#291)", async () => {
-    const filterCreate = vi.fn(async (_p: unknown) => ({ data: { id: "F9" } }));
+    const filterCreate = vi.fn(made("F9"));
     await mailboxOver(provider({ filterCreate })).installRule(
       domain("vendor.com"),
       "L1",
@@ -1018,8 +1136,8 @@ describe("replacing a rule", () => {
       provider({
         filterGet: old,
         filterCreate: async (p) => {
-          steps.push(`create ${JSON.stringify(p.requestBody?.action)}`);
-          return { data: { id: "Fnew" } };
+          steps.push(`create ${JSON.stringify(p?.requestBody?.action)}`);
+          return made("Fnew")(p);
         },
         filterDelete: async ({ id }) => {
           steps.push(`delete ${id}`);
@@ -1040,7 +1158,7 @@ describe("replacing a rule", () => {
       mailboxOver(
         provider({
           filterGet: old,
-          filterCreate: async () => ({ data: { id: "Fnew" } }),
+          filterCreate: made("Fnew"),
           filterDelete: async ({ id }) => {
             deleted.push(id ?? "");
             if (id === "Fold")

@@ -27,6 +27,7 @@ import {
 } from "./request";
 import {
   broodRuleOf,
+  heldAsSent,
   HOME_PARENT,
   homeAtProvider,
   quietedHomeAtProvider,
@@ -556,7 +557,10 @@ async function guard<T>(
     if (
       e instanceof DraftNotAnEventError ||
       e instanceof MissingArrivalTimeError ||
-      e instanceof RuleNotFoundError
+      e instanceof RuleNotFoundError ||
+      // Already one, made with a code of Brood's own: wrapped again, its
+      // code would be lost (#659).
+      e instanceof ProviderRequestError
     )
       throw e;
     throw new ProviderRequestError(operation, statusOf(e), reasonOf(e));
@@ -943,6 +947,27 @@ async function createRule(
     },
   });
   if (!data.id) throw new Error("no id");
+  // Gmail answers with the filter it made (filters.create's reference). One
+  // that carves out less than was sent is taken back out and the change
+  // fails, so a shortened filter is never left filing what the list keeps
+  // (#659, `heldAsSent`).
+  if (!heldAsSent({ scope, identity }, data.criteria)) {
+    // Tried twice. A filter that still will not go carries this rule's tag.
+    // Made to replace a rule, it sits beside the recorded filter, and the
+    // hourly sweep removes it as a replacement whose cleanup failed; made for a
+    // rule not yet recorded, the sweep reports it and leaves it, as it does any
+    // tag nothing records (`rules/sweep.ts`). The error says it was left.
+    try {
+      await deleteRule(provider, data.id);
+    } catch {
+      try {
+        await deleteRule(provider, data.id);
+      } catch {
+        throw new ProviderRequestError("rule", 0, "shortFilterLeft");
+      }
+    }
+    throw new ProviderRequestError("rule", 0, "notHeldAsSent");
+  }
   return data.id;
 }
 
