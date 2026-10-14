@@ -17,7 +17,7 @@ private repository, and copied here by that repository's CI whenever it changes.
 Nothing here is edited by hand, and it takes no pull requests: this is evidence,
 not a library.
 
-## What each read path shows, and what it does not
+## What you can check, and what you cannot
 
 Every read path implements one contract, `apps/web/src/server/channel/`: the types, errors and
 declared capabilities through which the rest of Brood speaks to a mailbox. It
@@ -27,24 +27,29 @@ holds no client and makes no request; what reads a mailbox is in the read paths.
 
 `apps/web/src/server/gmail/`, checked by `scripts/verify_gmail_reads.mjs`.
 
-- **Inspectable.** Every read that can carry a message body asks for metadata explicitly: two calls, each in its own file with its own list of headers, and neither list holds Subject. One reads each message's sender and recipients, and whether it offers a signed one-click unsubscribe; the other, when a person asks to be unsubscribed from a mailing, reads one message's unsubscribe and signature headers. Look at the code.
-- **Attested.** No code outside this directory calls Gmail. That is a claim about the whole application, which is not published. The same check runs over the full source on every change; run here, over this directory alone, that half of it passes without having anything to read.
+- **You can check.** Every read that could fetch a message body asks for metadata only, and names exactly which headers it wants. Subject is never one of them. There are two such reads, each in its own file. One reads each message's sender and recipients, and whether it offers a signed one-click unsubscribe. The other runs only when a person asks to be unsubscribed from a mailing, and reads that one message's unsubscribe and signature headers. Look at the code.
+- **You have our word.** No other code in Brood calls Gmail. That is a claim about the whole application, which is private, so you have our word for it rather than code to read. The check runs over the full application whenever its code changes; here it has nothing to look at and passes regardless.
 
-## Two limits, stated plainly
+## What this repository cannot prove
 
-**This shows what was written, not what is running.** You can read the source;
-you cannot confirm from here that the deployed service was built from it.
+**It shows the code we wrote, not the code that is running.** You can read the
+source here, but nothing here lets you confirm that the live service was built
+from it.
 
-**Half of each check proves nothing here.** Each check also confirms that no code
-outside its read path calls the provider. Over this repository, which holds only
-the read paths, that half passes with nothing to read. It is run over the full
-source privately, on every change, and for that half you have our word.
+**It cannot show that this is the only code that reaches the provider.** Each
+check does two jobs. The first looks inside its directory, at the reads each
+section above lists under "You can check", and you can confirm those by reading
+the code. The second looks at the rest of the application, to make sure no other
+code reaches the provider. The rest of the application is private, so here the
+second job has nothing to look at and passes regardless: its green tick here is
+not evidence. In the private repository it runs over all the code whenever any
+of it changes, and for that you have only our word.
 
 ## Reading the comments
 
-Comments cite design documents and issues by name, such as `DD1 §2.2` or `#182`.
-They live in the private repository. The code and its checks are complete without
-them.
+The code's comments refer to internal design documents and issues, such as
+`DD1 §2.2` or `#182`. Those are private. You do not need them to read the code
+or run the checks.
 
 ## Running the checks
 
