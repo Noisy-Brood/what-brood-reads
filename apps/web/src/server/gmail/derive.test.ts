@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  deriveEvent,
-  DraftNotAnEventError,
-  MissingArrivalTimeError,
-  MissingProviderEventIdError,
-} from "./derive";
+import { deriveEvent, MissingProviderEventIdError } from "./derive";
 import { METADATA_HEADERS } from "./headers";
 import type { ProviderMessage } from "./types";
+import { DraftNotAnEventError, MissingArrivalTimeError } from "../channel";
 
 /**
  * `conventions/testing.md`: test the logic that fails silently.

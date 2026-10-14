@@ -3,14 +3,14 @@ import { RefreshToken } from "../tokens/secret";
 import { TokenRevokedError } from "../tokens";
 import type { TokenOpener } from "../tokens/open";
 import type { ProviderClient } from "./client";
-import { DraftNotAnEventError } from "./derive";
 import { METADATA_HEADERS, UNSUBSCRIBE_HEADERS } from "./headers";
 import {
+  failureOf,
+  GMAIL_CAPABILITIES,
   MAX_HOMES_COUNTED,
   mailboxOver,
   oldestMail,
   openMailbox,
-  ProviderRequestError,
   RevocationError,
   revokeMailbox,
   windowQuery,
@@ -18,6 +18,7 @@ import {
 import { AuthorizationError } from "./request";
 import { stubProviderClient } from "./stub-client.test-support";
 import { unconnectedSql } from "../testing/unconnected-sql";
+import { DraftNotAnEventError, ProviderRequestError } from "../channel";
 
 /** The database handle passed in: never queried, since the token opener is a stand-in. */
 const SQL = unconnectedSql();
@@ -112,10 +113,12 @@ describe("opening a mailbox", () => {
       fetchFn: tokenEndpoint(() => json({ access_token: ACCESS })).fn,
     });
     // The rule side (#194) files and installs by id and scope: each takes and
-    // returns provider ids, never a credential.
+    // returns provider ids, never a credential. `capabilities` is a frozen
+    // declaration, the same for every mailbox (#456).
     expect(Object.keys(mailbox).sort()).toEqual([
       "addresses",
       "bringIntoView",
+      "capabilities",
       "changes",
       "colourHome",
       "ensureHome",
@@ -568,10 +571,72 @@ describe("what the mailbox asks, and what its failures carry", () => {
         ),
       );
       expect(error).toBeInstanceOf(ProviderRequestError);
-      expect(error).toMatchObject({ operation, status: 404 });
+      // What a 404 means is judged here, once (#456): an expired cursor on
+      // the changes, a message read by id not being there, and a failure on
+      // anything not asked about by id.
+      expect(error).toMatchObject({
+        operation,
+        status: 404,
+        kind:
+          operation === "changes"
+            ? "cursor_expired"
+            : operation === "read"
+              ? "gone"
+              : "failed",
+      });
       expect(everything(error)).not.toContain(SENTINEL);
     },
   );
+
+  it("reads a 404 as gone only where one thing was asked for by its id (#456)", async () => {
+    const fail = async () => {
+      throw libraryError(404);
+    };
+    const m = mailboxOver(
+      stubProviderClient({
+        labels: {
+          get: fail,
+          list: async () => ({ data: { labels: [] } }),
+          create: fail,
+        },
+        filters: { get: fail },
+      }),
+    );
+    // Asked by id: the home's colour, the rule's home.
+    expect(await failure(m.homeColour("L1"))).toMatchObject({
+      operation: "home",
+      kind: "gone",
+    });
+    expect(await failure(m.ruleHome("F1"))).toMatchObject({
+      operation: "rule",
+      kind: "gone",
+    });
+    // Making or listing: a failure, whatever the status.
+    expect(await failure(m.ensureHome("stripe"))).toMatchObject({
+      operation: "home",
+      kind: "failed",
+    });
+  });
+
+  it.each([
+    ["with a page token, refused", "t1", "page_refused"],
+    ["with none, a failure", undefined, "failed"],
+  ] as const)("a 400 on a listing %s (#456)", async (_, pageToken, kind) => {
+    const fail = async () => {
+      throw libraryError(400);
+    };
+    const m = mailboxOver(provider({ list: fail }));
+    for (const call of [
+      () => m.list({ since: new Date(), pageToken }),
+      () =>
+        m.matching(
+          { from: { kind: "domain", value: "example.test" }, exclude: [] },
+          { pageToken },
+        ),
+    ]) {
+      expect(await failure(call())).toMatchObject({ status: 400, kind });
+    }
+  });
 
   /** A Gmail error body as its guide shows one (#375), with a sentinel in its message. */
   const googleError = (status: number, reason: unknown) =>
@@ -634,11 +699,31 @@ describe("what the mailbox asks, and what its failures carry", () => {
   ] as const)(
     "a %i with reason %s is rate limited: %s",
     (status, reason, limited) => {
-      expect(new ProviderRequestError("read", status, reason).rateLimited).toBe(
+      expect(failureOf("read", status, reason) === "rate_limited").toBe(
         limited,
       );
     },
   );
+
+  it("declares what Gmail can do, as D14 §4 says it (#456)", () => {
+    expect(mailboxOver(provider({})).capabilities).toBe(GMAIL_CAPABILITIES);
+    expect(GMAIL_CAPABILITIES).toEqual({
+      installsRules: true,
+      rulesActBeforeDelivery: true,
+      // A filter cannot be edited: a rule is replaced by making and removing (DD1 §7.5).
+      rulesEditable: false,
+      canMove: true,
+      canClassifyRetroactively: true,
+      supportsMultipleClassifications: true,
+      incrementalSync: true,
+    });
+    expect(Object.isFrozen(GMAIL_CAPABILITIES)).toBe(true);
+  });
+
+  it("carries what Google's reason means on the error, for the core to read (#456)", async () => {
+    const error = await readFailing(403, "userRateLimitExceeded");
+    expect(error).toMatchObject({ kind: "rate_limited", rateLimited: true });
+  });
 
   it("lets the derivation's refusal of a draft through as itself", async () => {
     const get = async () => ({

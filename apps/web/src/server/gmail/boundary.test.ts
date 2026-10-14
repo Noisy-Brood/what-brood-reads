@@ -28,7 +28,9 @@ import { describe, expect, it } from "vitest";
 const DIR = import.meta.dirname;
 
 /** Where the chokepoint may import from, outside its own directory. */
-const ALLOWED = [
+const ALLOWED: readonly string[] = [
+  // The port it implements, published beside it (D10 §7, #456).
+  "../channel",
   // The encryption helpers, named and not contained (D10 §7).
   "../tokens",
   "../tokens/open",
@@ -45,23 +47,63 @@ const resolved = (path: string, spec: string) =>
   spec.startsWith(".")
     ? posix.normalize(posix.join(posix.dirname(path), spec))
     : spec;
-const allowed = (path: string, spec: string) => {
-  if (spec.startsWith("node:") || ALLOWED.includes(spec)) return true;
+const allowed = (path: string, spec: string, list = ALLOWED) => {
+  if (spec.startsWith("node:") || list.includes(spec)) return true;
   const to = resolved(path, spec);
   return spec.startsWith(".")
-    ? !to.startsWith("..") || ALLOWED.includes(to)
+    ? !to.startsWith("..") || list.includes(to)
     : false;
 };
 
-/** Every module specifier a source file imports, by any form. */
-function importsOf(path: string, text: string): string[] {
+/**
+ * The port the chokepoint implements, published beside it (D10 §7, #456).
+ * It holds types, errors and the capabilities declaration, so it imports
+ * the account's type and the driver's, and nothing else: not even an
+ * adapter, which would publish one provider's code as every provider's
+ * contract.
+ */
+const PORT = join(DIR, "../channel");
+const PORT_ALLOWED: readonly string[] = ["../tokens", "postgres"];
+
+/**
+ * Whether a declaration brings in types alone: `import type`, `export type`,
+ * or every name it binds marked `type`. A bare `import "x"` runs the module,
+ * and a default import is a value, so neither is.
+ */
+const typeOnly = (node: ts.ImportDeclaration | ts.ExportDeclaration) => {
+  if (ts.isExportDeclaration(node))
+    return (
+      node.isTypeOnly ||
+      (!!node.exportClause &&
+        ts.isNamedExports(node.exportClause) &&
+        node.exportClause.elements.every((e) => e.isTypeOnly))
+    );
+  const clause = node.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  const named = clause.namedBindings;
+  return (
+    !clause.name &&
+    !!named &&
+    ts.isNamedImports(named) &&
+    named.elements.every((e) => e.isTypeOnly)
+  );
+};
+
+/**
+ * Every module specifier a source file imports, by any form. With
+ * `valuesOnly`, those that bring in more than types: every form but a
+ * type-only declaration.
+ */
+function importsOf(path: string, text: string, valuesOnly = false): string[] {
   const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
   const found: string[] = [];
   const visit = (node: ts.Node) => {
     if (
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
       node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      !(valuesOnly && typeOnly(node))
     ) {
       found.push(node.moduleSpecifier.text);
     }
@@ -91,10 +133,22 @@ function importsOf(path: string, text: string): string[] {
 }
 
 /** The imports in a file that reach outside what D10 §7 allows. */
-const outward = (path: string, text: string) =>
+const outward = (path: string, text: string, list = ALLOWED) =>
   importsOf(path, text)
-    .filter((spec) => !allowed(path, spec))
+    .filter((spec) => !allowed(path, spec, list))
     .map((spec) => `${path}: ${spec}`);
+
+/**
+ * The port's imports that reach outside it: any of a module other than its
+ * own, its two allowed ones included, that brings in more than types. A value
+ * from `../tokens` would publish the vault's reach as the contract.
+ */
+const portOutward = (path: string, text: string) => [
+  ...outward(path, text, PORT_ALLOWED),
+  ...importsOf(path, text, true)
+    .filter((spec) => !allowed(path, spec, []))
+    .map((spec) => `${path}: ${spec} (a value)`),
+];
 
 /** Every source file under `dir`, at any depth, as a path from it. */
 const sourcesUnder = (dir: string) =>
@@ -112,10 +166,46 @@ describe("the chokepoint's imports (D10 §7)", () => {
     expect(files).toContain("observe.ts");
   });
 
-  it("reach nothing in the app but the encryption helpers it names", () => {
+  it("reach nothing in the app but the port and the encryption helpers it names", () => {
     expect(
       files.flatMap((f) => outward(f, readFileSync(join(DIR, f), "utf8"))),
     ).toEqual([]);
+  });
+
+  it("leave the port reaching nothing but the account's type and the driver's", () => {
+    const port = sourcesUnder(PORT);
+    expect(port).toContain("mailbox.ts");
+    expect(
+      port.flatMap((f) => portOutward(f, readFileSync(join(PORT, f), "utf8"))),
+    ).toEqual([]);
+  });
+
+  it("refuses the port an import of an adapter", () => {
+    expect(portOutward("x.ts", `import type { M } from "../gmail";`)).toEqual([
+      "x.ts: ../gmail",
+    ]);
+  });
+
+  it.each([
+    ["a value", `import { createTokenOpener } from "../tokens";`],
+    ["a default", `import postgres from "postgres";`],
+    ["a module run for its effects", `import "../tokens";`],
+    [
+      "a value beside a type",
+      `import { type AccountRef, open } from "../tokens";`,
+    ],
+    ["a re-exported value", `export { open } from "../tokens";`],
+  ])("refuses the port %s from a module it may take types from", (_w, text) => {
+    expect(portOutward("x.ts", text)).not.toEqual([]);
+  });
+
+  it.each([
+    [`import type { AccountRef } from "../tokens";`],
+    [`import type postgres from "postgres";`],
+    [`import { type AccountRef } from "../tokens";`],
+    [`export type { AccountRef } from "../tokens";`],
+  ])("allows the port a type from them: %s", (text) => {
+    expect(portOutward("x.ts", text)).toEqual([]);
   });
 
   it.each([

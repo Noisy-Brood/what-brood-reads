@@ -19,6 +19,10 @@ not a library.
 
 ## What each read path shows, and what it does not
 
+Every read path implements one contract, `apps/web/src/server/channel/`: the types, errors and
+declared capabilities through which the rest of Brood speaks to a mailbox. It
+holds no client and makes no request; what reads a mailbox is in the read paths.
+
 ### Gmail
 
 `apps/web/src/server/gmail/`, checked by `scripts/verify_gmail_reads.mjs`.

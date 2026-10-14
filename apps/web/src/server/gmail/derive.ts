@@ -6,7 +6,13 @@ import {
   header,
   splitAddressList,
 } from "./headers";
-import type { ObservedEvent, Placement, ProviderMessage } from "./types";
+import type { ProviderMessage } from "./types";
+import {
+  DraftNotAnEventError,
+  MissingArrivalTimeError,
+  type ObservedEvent,
+  type Placement,
+} from "../channel";
 
 /**
  * The response carried no id, so the event has no handle at the provider.
@@ -20,31 +26,6 @@ export class MissingProviderEventIdError extends Error {
   constructor() {
     super("provider message has no id");
     this.name = "MissingProviderEventIdError";
-  }
-}
-
-/** The response carried no `internalDate`, so the event cannot be placed in time. */
-export class MissingArrivalTimeError extends Error {
-  constructor(providerEventId: string) {
-    super(`no internalDate on message ${providerEventId}`);
-    this.name = "MissingArrivalTimeError";
-  }
-}
-
-/**
- * The message is a draft, which reached nobody and so is not a reachability
- * event in either direction (DD11 §1). Not a malformed response: a message the
- * index has no place for, which the sync path skips rather than fails on.
- *
- * Why it has to be refused here: a draft carries neither `SENT` nor `INBOX`, so
- * it would be derived as inbound, from the account itself, and the account would
- * become one of its own senders, the thing DD1 §6.4 was written to prevent. And
- * each edit of a draft can surface again through history.
- */
-export class DraftNotAnEventError extends Error {
-  constructor(providerEventId: string) {
-    super(`message ${providerEventId} is a draft`);
-    this.name = "DraftNotAnEventError";
   }
 }
 
@@ -74,7 +55,11 @@ export function deriveEvent(
   const providerEventId = message.id;
   // Before anything else is derived: a draft is not an event at all. Gmail puts
   // its DRAFT system label on every draft, from its interface and its API alike,
-  // and no one can apply it by hand.
+  // and no one can apply it by hand. Refused here because a draft carries
+  // neither SENT nor INBOX, so it would be derived as inbound, from the account
+  // itself, and the account would become one of its own senders, the thing DD1
+  // §6.4 was written to prevent. And each edit of a draft can surface again
+  // through history.
   if (message.labelIds?.includes("DRAFT")) {
     throw new DraftNotAnEventError(providerEventId);
   }

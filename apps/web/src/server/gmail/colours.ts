@@ -8,13 +8,7 @@
  * there would map each colour to its nearest preset.
  */
 
-/**
- * The colours a home can be drawn in: a colour of its own, each a hue word any
- * adapter can map, or the pale tint homes with little mail share. A port type,
- * like `Mailbox`, so it lives here until the port is its own module (#456).
- */
-export type HomeColour = "blue" | "green" | "lavender" | "gold" | "muted";
-
+import type { HomeColour } from "../channel";
 /**
  * Every value Gmail allows for a label's text or background colour, as its
  * reference lists them (`google-2026-gmail-labels`). Read only by the test

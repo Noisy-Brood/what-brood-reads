@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderClient } from "./client";
-import {
-  colourOf,
-  GMAIL_COLOURS,
-  GMAIL_LABEL_PALETTE,
-  type HomeColour,
-} from "./colours";
+import { colourOf, GMAIL_COLOURS, GMAIL_LABEL_PALETTE } from "./colours";
 import { mailboxOver } from "./mailbox";
 import { stubProviderClient } from "./stub-client.test-support";
+import type { HomeColour } from "../channel";
 
 /**
  * A home's colour as Gmail draws it (#796): every pair is one Gmail accepts,

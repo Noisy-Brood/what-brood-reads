@@ -1,9 +1,5 @@
-import {
-  homeAtProvider,
-  quietedHomeAtProvider,
-  renderRule,
-  type RuleScope,
-} from "./rules";
+import { homeAtProvider, quietedHomeAtProvider, renderRule } from "./rules";
+import type { RuleScope } from "../channel";
 
 /**
  * Brood's rules as Gmail's own filter file, the `.xml` its *Import filters*

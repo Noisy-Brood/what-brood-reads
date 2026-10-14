@@ -5,6 +5,7 @@ import {
   type RawHeader,
 } from "./headers";
 import type { ProviderClient } from "./client";
+import type { OneClick } from "../channel";
 
 /**
  * Whether one message offers a one-click unsubscribe Brood may use on the
@@ -69,30 +70,6 @@ export class UnsubscribeUrl {
     return REDACTED;
   }
 }
-
-/** Why a message offers no one-click unsubscribe Brood may use. */
-export type NoOneClick =
-  /** No `List-Unsubscribe-Post: List-Unsubscribe=One-Click`. */
-  | "not_one_click"
-  /** No `https:` address in `List-Unsubscribe`. */
-  | "no_https"
-  /** No signature Gmail passed that covers both unsubscribe headers. */
-  | "not_signed"
-  /** A covering signature passed, but not the sender's own domain's. */
-  | "not_aligned";
-
-/**
- * What a caller may do with the address: post to it. The read always hands
- * out an `UnsubscribeUrl`, which prints `[redacted]`; a caller is promised
- * only `href()`, so a test can stand one in, typed.
- */
-export interface UnsubscribeAddress {
-  href(): string;
-}
-
-export type OneClick =
-  | { offered: true; url: UnsubscribeAddress }
-  | { offered: false; reason: NoOneClick };
 
 /** Read one message's unsubscribe headers and say whether one-click is offered. */
 export async function readUnsubscribe(

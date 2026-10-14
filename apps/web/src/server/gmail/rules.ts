@@ -20,19 +20,16 @@
  * it fails rather than being escaped into something that might mean anything.
  */
 
-export interface RuleScope {
-  from: { kind: "address" | "domain"; value: string };
-  /** Exact addresses, and domains with everything under them. */
-  exclude: readonly string[];
-  /**
-   * Exact addresses that, copied on a message, keep it out (#663): `cc:`
-   * terms, which Gmail's search matches in the Cc or Bcc fields
-   * (`google-2026-gmail-search-operators`). How an alert that shares its
-   * sender with mailings is told apart, such as GitHub's `security_alert`.
-   */
-  excludeCc?: readonly string[];
-}
-
+import type {
+  AdoptRefusal,
+  AdoptedRule,
+  BroodRule,
+  OwnRule,
+  OwnRuleDoes,
+  OwnRuleShown,
+  RuleIdentity,
+  RuleScope,
+} from "../channel";
 /**
  * A value in a scope is not plainly an address or a domain. It carries nothing
  * of the value: that is a sender's address, and D8 §7 keeps sender addresses
@@ -154,15 +151,6 @@ export function quietedHomeAtProvider(path: string): string {
   return `${QUIETED_AT_PROVIDER}/${home.slice(HOME_PARENT.length + 1)}`;
 }
 
-/**
- * Which Brood made a rule, and which of its rules it is (#291): the database's
- * installation id, twelve hex characters, and the rule's id.
- */
-export interface RuleIdentity {
-  installation: string;
-  ruleId: string;
-}
-
 const TAG = /^nb-([0-9a-f]{12})([0-9a-f]{32})\.invalid$/;
 
 /**
@@ -182,23 +170,6 @@ export function ruleTag(identity: RuleIdentity): string {
   }
   return `nb-${identity.installation}${hex}.invalid`;
 }
-
-/**
- * A rule as Brood recorded it: its id at the provider, and the home it files
- * into where that is recorded. What tells Brood's rules apart from the
- * person's without reading the person's whole (D21 §2, #1106).
- */
-export interface RecordedRule {
-  providerRuleId: string;
-  homeId: string | null;
-}
-
-/**
- * What one of the person's own rules names, read with certainty: one exact
- * address, or one domain (D21 §1, #1107). Never the rule's own text: only this
- * leaves the chokepoint.
- */
-export type OwnRule = { kind: "address" | "domain"; value: string };
 
 /**
  * One of the person's rules, as what its `from` names for certain, where its
@@ -233,25 +204,6 @@ function namedBy(rule: ProviderRule): OwnRule | null {
     return { kind: "address", value: from };
   const domain = from.startsWith("@") ? from.slice(1) : from;
   return DOMAIN.test(domain) ? { kind: "domain", value: domain } : null;
-}
-
-/** What one of the person's rules does, in words a page can say (#1109). */
-export type OwnRuleDoes =
-  "out_of_inbox" | "trash" | "read" | "starred" | "important" | "forwards";
-
-/** One of the person's rules, as their page shows it (#1109). */
-export interface OwnRuleShown {
-  /** The provider's id for it, for a press to take it over by (#1110). */
-  id: string;
-  names: OwnRule;
-  /** The person's own labels it files under, by their names. */
-  under: string[];
-  does: OwnRuleDoes[];
-  /**
-   * Why it cannot be taken over, as far as its sender and action say, or null
-   * where they allow it; the press reads it whole and asks again (#1110).
-   */
-  refusal: AdoptRefusal | null;
 }
 
 /**
@@ -300,28 +252,6 @@ export function describeOwnRules(
   }
   return { shown, unreadable };
 }
-
-/**
- * One of the person's rules, taken over as Brood's (D21 §4, #1110): the one
- * sender it names and the one label of theirs it files under, out of the
- * inbox. All it takes to put theirs back exactly, and no text of theirs, since
- * a rule that held any is never taken over.
- */
-export type AdoptedRule = { names: OwnRule; homeId: string };
-
-/** Why one of the person's rules cannot be taken over exactly (#1110). */
-export type AdoptRefusal =
-  /** It also matches a subject, a search, an attachment, a size or a recipient. */
-  | "matches_more"
-  /** Its `from` names no one sender for certain. */
-  | "not_one_sender"
-  /** It leaves mail in the inbox, which Brood's rules never do. */
-  | "keeps_in_inbox"
-  | "forwards"
-  /** It also stars, marks read, sends to the trash or marks important. */
-  | "does_more"
-  | "no_home"
-  | "several_homes";
 
 /**
  * Whether one of the person's rules can be carried exactly as one of Brood's
@@ -381,24 +311,6 @@ export interface ProviderRule {
 
 const TERM = /^from:\S+$/;
 const CC_TERM = /^cc:\S+$/;
-
-/** A rule at the provider that is plainly Brood's: who made it, what it files, where. */
-export interface BroodRule {
-  identity: RuleIdentity;
-  /** The sender term of its query, read back into Brood's terms. */
-  from: RuleScope["from"];
-  /** The one home it files into. */
-  home: string;
-  /**
-   * What it carves out, besides its tag, as the provider holds it: the values
-   * of its other `from:` terms, sorted. What the sweep compares with the record,
-   * since a copy edited at the provider can carve out less than the record says
-   * (#441).
-   */
-  exclude: string[];
-  /** Its `cc:` carve-outs' addresses, sorted: the same, for copied addresses. */
-  excludeCc: string[];
-}
 
 /** Keys a present value of which is anything but null makes a rule not Brood's. */
 const onlyKeys = (o: object, allowed: readonly string[]) =>

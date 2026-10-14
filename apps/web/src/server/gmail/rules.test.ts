@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ProviderClient } from "./client";
-import {
-  FILE_BATCH,
-  mailboxOver,
-  ProviderRequestError,
-  RuleNotFoundError,
-} from "./mailbox";
+import { FILE_BATCH, mailboxOver } from "./mailbox";
 import {
   adoptableOf,
   broodRuleOf,
@@ -20,6 +15,7 @@ import {
   UnrenderableRuleError,
 } from "./rules";
 import { stubProviderClient } from "./stub-client.test-support";
+import { ProviderRequestError, RuleNotFoundError } from "../channel";
 
 /**
  * A rule's scope in Gmail's syntax, and the writes that install and file by it.

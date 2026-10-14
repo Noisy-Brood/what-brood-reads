@@ -44,48 +44,23 @@ export type { OAuthClient, Redeemed, Sealer } from "./oauth";
 // Not exported: the raw client (`./client`) and the read functions that take one
 // (`listEventIds`, `readEvent`, `readUnsubscribe`). Outside this directory Gmail is reached through a
 // `Mailbox` and nothing else, and `scripts/verify_gmail_reads.mjs` holds it there.
+// The `Mailbox`, its types and its errors are the port's, imported from
+// `../channel` and never re-exported here, so each has one path (#456).
 export {
   keepGrant,
   openMailbox,
-  ProviderRequestError,
   RevocationError,
   revokeMailbox,
-  RuleNotFoundError,
 } from "./mailbox";
-export type {
-  Mailbox,
-  MailboxDeps,
-  MailboxOpener,
-  MailboxSize,
-  PageOptions,
-  Revocation,
-  WindowOptions,
-} from "./mailbox";
-export type { HomeColour } from "./colours";
+export type { MailboxDeps, Revocation } from "./mailbox";
 export { PushRejectedError, verifyPush } from "./push";
 export type { PushConfig, PushDeps, PushRefusal, SigningKeys } from "./push";
-export type {
-  ChangeOptions,
-  ChangePage,
-  MovedEvent,
-  ListOptions,
-  ListPage,
-  ReadOptions,
-} from "./observe";
+export type { ListOptions } from "./observe";
 
-export {
-  deriveEvent,
-  DraftNotAnEventError,
-  MissingArrivalTimeError,
-} from "./derive";
+export { deriveEvent } from "./derive";
 export { METADATA_HEADERS } from "./headers";
 // A type only: an address is made by the read, never outside it.
-export type {
-  NoOneClick,
-  OneClick,
-  UnsubscribeAddress,
-  UnsubscribeUrl,
-} from "./unsubscribe";
+export type { UnsubscribeUrl } from "./unsubscribe";
 export {
   HOME_PARENT,
   homeAtProvider,
@@ -95,18 +70,7 @@ export {
   renderableValue,
   UnrenderableRuleError,
 } from "./rules";
-export type {
-  AdoptRefusal,
-  AdoptedRule,
-  BroodRule,
-  OwnRule,
-  OwnRuleDoes,
-  OwnRuleShown,
-  RecordedRule,
-  RuleIdentity,
-  RuleScope,
-} from "./rules";
 export { rulesFile, type RuleToWrite } from "./filter-file";
 
-export type { ObservedEvent, Placement, ProviderMessage } from "./types";
+export type { ProviderMessage } from "./types";
 export { READS_PER_MINUTE } from "./pace";

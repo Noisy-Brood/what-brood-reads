@@ -5,19 +5,10 @@ import { createTokenOpener, type TokenOpener } from "../tokens/open";
 import type { RefreshToken } from "../tokens/secret";
 import { readPacer, type Pacer } from "./pace";
 import { createClient, type ProviderClient } from "./client";
-import { colourOf, GMAIL_COLOURS, type HomeColour } from "./colours";
-import { DraftNotAnEventError, MissingArrivalTimeError } from "./derive";
+import { colourOf, GMAIL_COLOURS } from "./colours";
 import type { OAuthClient } from "./oauth";
-import {
-  listChanges,
-  listEventIds,
-  readEvent,
-  type ChangeOptions,
-  type ChangePage,
-  type ListPage,
-  type ReadOptions,
-} from "./observe";
-import { readUnsubscribe, type OneClick } from "./unsubscribe";
+import { listChanges, listEventIds, readEvent } from "./observe";
+import { readUnsubscribe } from "./unsubscribe";
 import {
   AuthorizationError,
   revokeToken,
@@ -31,27 +22,29 @@ import {
   HOME_PARENT,
   homeAtProvider,
   quietedHomeAtProvider,
-  type BroodRule,
   adoptableOf,
-  type AdoptedRule,
-  type AdoptRefusal,
   describeOwnRules,
   ownRuleOf,
-  type OwnRule,
-  type OwnRuleShown,
   type ProviderRule,
-  type RecordedRule,
   renderRule,
   searchFor,
-  type RuleIdentity,
-  type RuleScope,
   UnrenderableRuleError,
 } from "./rules";
-import type { ObservedEvent } from "./types";
+import {
+  type Capabilities,
+  DraftNotAnEventError,
+  type Mailbox,
+  MissingArrivalTimeError,
+  type ProviderFailure,
+  ProviderRequestError,
+  type RecordedRule,
+  type RuleIdentity,
+  RuleNotFoundError,
+  type RuleScope,
+} from "../channel";
 
 /**
- * A connected mailbox, as the rest of the app may hold it: what it can ask of
- * the mailbox, and no credential and no client (DD1 §3.2, §11).
+ * Gmail's implementation of the channel port's `Mailbox` (`../channel`).
  *
  * `openMailbox` takes an account, opens its sealed refresh token, trades it for
  * an access token, and closes over a provider client built from that. The
@@ -59,33 +52,19 @@ import type { ObservedEvent } from "./types";
  * the client, and the client lives in this closure. What comes back is
  * functions over it, and nothing that holds a credential.
  *
- * The one import from the rest of the app is the token opener, and the type it
- * returns, `RefreshToken`, which prints `[redacted]` and gives its value only to
- * `reveal()`, called here where the token is sent (#369). D10 §7 counts the
- * encryption helpers as a dependency the chokepoint names rather than contains,
- * and `scripts/verify_token_access.mjs` permits this directory to import it.
+ * Its imports from the rest of the app are the port it implements
+ * (`../channel`), published beside it (D10 §7), and the token opener, with the
+ * type it returns, `RefreshToken`, which prints `[redacted]` and gives its value
+ * only to `reveal()`, called here where the token is sent (#369). D10 §7 counts
+ * the encryption helpers as a dependency the chokepoint names rather than
+ * contains, and `scripts/verify_token_access.mjs` permits this directory to
+ * import it.
  *
  * **An access token lasts about an hour and is not refreshed here.** A mailbox is
  * opened for one unit of work, a backfill step, say, and a new one is opened for
  * the next. A long-lived handle would need to refresh, and refreshing would need
  * the refresh token kept in memory for as long as the handle lives.
  */
-/** How big a mailbox is (#558). Null where the provider gives no count. */
-export interface MailboxSize {
-  messages: number | null;
-  conversations: number | null;
-  /** Messages in the inbox. */
-  inbox: number | null;
-  /** Messages under Brood's homes. */
-  filed: number | null;
-  /**
-   * The day the oldest mail still in it arrived, to the day: how far back it
-   * goes. A lower bound on the account's age, since deleted mail leaves no
-   * trace; Gmail does not say when an account was made. Null for a mailbox
-   * with no mail.
-   */
-  oldest: Date | null;
-}
 
 /** The most homes a size read counts, one request each. */
 export const MAX_HOMES_COUNTED = 100;
@@ -137,218 +116,6 @@ export async function oldestMail(
   return new Date(lo);
 }
 
-export interface Mailbox {
-  /**
-   * The provider's change cursor as of now: Gmail's `historyId`. Captured before
-   * a backfill lists anything, so that mail arriving during it is seen twice
-   * rather than never (DD1 §4.1).
-   */
-  historyCursor(): Promise<string>;
-  /**
-   * One page of the events that arrived since `since`, drafts left out. The
-   * provider's search syntax stays in the adapter: the caller names a time.
-   */
-  list(options: WindowOptions): Promise<ListPage>;
-  read(providerEventId: string, options: ReadOptions): Promise<ObservedEvent>;
-  /**
-   * Whether this message offers a one-click unsubscribe Brood may post on the
-   * person's behalf, and where (#595, RFC 8058). For the one message a person
-   * pressed for: it reads that message's unsubscribe and signature headers,
-   * and nothing else (`unsubscribe.ts`).
-   */
-  oneClick(providerEventId: string): Promise<OneClick>;
-  /**
-   * One page of the events added since a cursor. A cursor older than the
-   * provider keeps history for fails with status 404, which is a documented state
-   * with a defined recovery, not an error to alarm on (DD1 §4.4).
-   */
-  changes(options: ChangeOptions): Promise<ChangePage>;
-  /**
-   * Ask the provider to push a notice of each change to `topic`, or renew the
-   * request. It lasts until `expiresAt`, and a watch that lapses looks exactly
-   * like a quiet mailbox (DD1 §4.2).
-   */
-  watch(topic: string): Promise<{ expiresAt: Date }>;
-  /**
-   * The mailbox's own addresses, as far as Gmail will say: the primary, and every
-   * send-as alias it has verified (`accepted`). An unverified one is left out, since
-   * ownership is not proven. **Workspace aliases are not among them**: Gmail does
-   * not list them here, and reading them needs an admin-directory scope outside D2,
-   * which is not requested (DD1 §2.3).
-   */
-  addresses(): Promise<string[]>;
-  /**
-   * How big the mailbox is, as far as Gmail will say (#558): its messages and
-   * threads, what sits in the inbox, and what is filed under Brood's homes.
-   * Only totals are asked for, with Gmail's `fields` parameter, so unread
-   * counts, which interface-prohibitions refuses to show, are never fetched.
-   * A count Gmail does not give is null: its reference does not say whether a
-   * system label such as the inbox carries counts.
-   */
-  size(): Promise<MailboxSize>;
-  /**
-   * One page of the events a rule with this scope would file, carve-outs left
-   * out: ids only, for the retroactive pass (DD1 §8). The provider's search
-   * syntax stays in the adapter, as `list`'s does.
-   */
-  matching(scope: RuleScope, options?: PageOptions): Promise<ListPage>;
-  /**
-   * The provider's id for the home at `path`, made if it is absent (DD1 §8:
-   * reconcile before creating). The home is named by `homeAtProvider`, under the
-   * `brood` parent (#304). Each parent is found or made before its child, so
-   * `brood/ext/stripe` never depends on how the provider treats a missing
-   * `brood` or `brood/ext`, which Gmail's labels reference does not say.
-   */
-  ensureHome(path: string): Promise<string>;
-  /**
-   * Show the home `homeId`, made for `path`, as `as`: under its own name, or
-   * moved under `brood/quieted/` (#393). A rename, so the home keeps its id,
-   * its mail and every rule filing into it. `left` where the home is not under
-   * the name Brood gave it, which is the person's doing and not undone (DD1
-   * §8), where the name it would take is in use, or where it has homes under
-   * it. `shown` where it is shown so now, whether or not this call renamed it.
-   */
-  showHome(
-    homeId: string,
-    path: string,
-    as: "active" | "quieted",
-  ): Promise<"shown" | "left">;
-  /**
-   * The colour the home `homeId` has now (#796): one of Brood's, null for
-   * none, or `other` for a colour that is none of Brood's. Whether a colour
-   * Brood can draw was given by Brood is the core's to know, from its record.
-   */
-  homeColour(homeId: string): Promise<HomeColour | null | "other">;
-  /** Give the home `homeId` the colour `to` (#796). */
-  colourHome(homeId: string, to: HomeColour): Promise<void>;
-  /**
-   * Install a rule that files what `scope` matches into `homeId`, out of view:
-   * the home added and the inbox removed, before delivery. Returns the
-   * provider's id for it.
-   */
-  installRule(
-    scope: RuleScope,
-    homeId: string,
-    identity: RuleIdentity,
-  ): Promise<string>;
-  /**
-   * Put a rule with `scope` in place of `providerRuleId`, filing into the same
-   * home, and return the new rule's id. The provider cannot edit a rule, so the
-   * new one is made first and the old one then removed; if that removal fails,
-   * the new one is removed too and the call fails, so the provider never holds
-   * two rules for one record. A rule no longer at the provider throws
-   * `RuleNotFoundError`, before anything is made.
-   */
-  replaceRule(
-    providerRuleId: string,
-    scope: RuleScope,
-    identity: RuleIdentity,
-  ): Promise<string>;
-  /**
-   * The rules at the provider that may be Brood's, read as Brood's where they
-   * plainly are (their identity, sender and home), or null where not (#291):
-   * each one `recorded`, and each filing into a home of Brood's. The person's
-   * own rules are listed by id and action only, and never read whole, so
-   * nothing they wrote to match mail reaches Brood (D21 §2, #1106).
-   */
-  listRules(
-    recorded: readonly RecordedRule[],
-  ): Promise<{ providerRuleId: string; rule: BroodRule | null }[]>;
-  /**
-   * What the person's own rules name, with certainty, where they take that
-   * mail somewhere (D21 §1, #1107): an exact address or a domain, and never a
-   * rule's own text. Listed through the one mask, so nothing else a rule
-   * matches arrives.
-   */
-  ownRules(): Promise<OwnRule[]>;
-  /**
-   * The person's own rules, for them to see beside Brood's, on their press
-   * (D21 §4, #1109): each naming one sender for certain, with the labels it
-   * adds by name and what else it does, and how many name none for certain.
-   * Brood's own, told apart by `recorded` as `listRules` does, are left out.
-   * Through the same one mask: nothing else a rule matches arrives.
-   */
-  ownRulesShown(recorded: readonly RecordedRule[]): Promise<{
-    shown: OwnRuleShown[];
-    unreadable: number;
-    /**
-     * The names of the person's own labels, none of Brood's, for the core to
-     * recognise what another product left (#1111). Read for the press and
-     * kept nowhere.
-     */
-    theirHomeNames: string[];
-  }>;
-  /**
-   * One of the person's rules read whole, by its id, at their press to take it
-   * over (D21 §4, #1110): the one read of a rule's full criteria, for that
-   * rule alone, judged and not returned. What can be taken over exactly, why
-   * it cannot, or null where it is gone.
-   */
-  ownRuleWhole(
-    providerRuleId: string,
-  ): Promise<AdoptedRule | AdoptRefusal | null>;
-  /**
-   * Put one of the person's rules back exactly as it was taken over (#1110):
-   * its sender, into their label, out of the inbox. Returns its new id.
-   */
-  restoreOwnRule(rule: AdoptedRule): Promise<string>;
-  /**
-   * The home a rule files into now, asked of the rule itself. A home renamed by
-   * the user keeps its id, and this is how Brood keeps filing into it (DD1 §8).
-   */
-  ruleHome(providerRuleId: string): Promise<string>;
-  /** Remove a rule. One already gone is not an error. */
-  removeRule(providerRuleId: string): Promise<void>;
-  /**
-   * File events already delivered into `homeId`, out of the inbox, as the
-   * rule would have: the retroactive pass (DD1 §8), a thousand ids a request.
-   */
-  fileExisting(
-    providerEventIds: readonly string[],
-    homeId: string,
-  ): Promise<void>;
-  /**
-   * The handles of Brood's homes at the provider (#442): the home each
-   * `recorded` rule files into, which a home the person renamed out of
-   * Brood's parent still is, and every label under that parent. How rescue
-   * tells mail Brood filed from mail the person's own rules moved. No rule is
-   * listed: a recorded rule with no home yet is asked by its id (#1106).
-   */
-  homeHandles(recorded: readonly RecordedRule[]): Promise<Set<string>>;
-  /**
-   * Put events back in the inbox (#442, and surfacing, #418). Adds the inbox
-   * and removes nothing, so an event keeps the home it was filed under.
-   */
-  bringIntoView(providerEventIds: readonly string[]): Promise<void>;
-  /**
-   * Undo filing (#663, D17): put events back in the inbox and take `homeIds`,
-   * the homes they were filed under, off them, so they are as they were before
-   * Brood. Removes those labels and nothing else, a thousand ids a request.
-   * More than one where nested homes both filed them (#610).
-   */
-  returnFromHome(
-    providerEventIds: readonly string[],
-    homeIds: readonly string[],
-  ): Promise<void>;
-}
-
-/**
- * Open one account's mailbox, reading its token through `on`: the transaction
- * a caller holds, when it holds one. Read through the pool instead, an open
- * inside a transaction waits for a second connection, and on a pool of one it
- * waits for ever: `make reconcile` hung that way on its first mailbox (#444).
- * disconnect opened this way from the start.
- *
- * The handle comes first, as it does in `openMailbox`, and on purpose: an
- * opener written as `(ref) => …` would type-check against a signature with
- * the handle second, silently ignoring it. With the handle first it is handed
- * a handle where it expects an account, and fails to compile.
- */
-export type MailboxOpener = (
-  on: postgres.Sql | postgres.TransactionSql,
-  ref: AccountRef,
-) => Promise<Mailbox>;
-
 /** The user's labels by name, which is how a home is found (DD1 §8). */
 async function homesByName(
   provider: ProviderClient,
@@ -395,28 +162,6 @@ async function makeHome(
   return id;
 }
 
-export interface PageOptions {
-  pageToken?: string | null;
-  pageSize?: number;
-}
-
-export interface WindowOptions {
-  since: Date;
-  /**
-   * Where the window ends, for the older half of a first read (#602): Google's
-   * `before:`, in epoch seconds as `after:` is. Open to now when absent.
-   */
-  before?: Date;
-  /**
-   * Sent mail only (#602): the first read lists the whole retention window
-   * of it, so the guard for people the person has written to is whole. Gmail's
-   * `in:sent`, which Google's filtering guide shows with date bounds.
-   */
-  sent?: boolean;
-  pageToken?: string | null;
-  pageSize?: number;
-}
-
 /**
  * The search for a window. `after:` takes epoch seconds and works on Google's
  * internal clock, so it agrees with `internalDate` (DD1 §5.1). `-in:drafts`
@@ -430,75 +175,6 @@ export const windowQuery = (since: Date, before?: Date, sent = false): string =>
   `${sent ? "in:sent " : ""}after:${Math.floor(since.getTime() / 1000)}${
     before ? ` before:${Math.floor(before.getTime() / 1000)}` : ""
   } -in:drafts`;
-
-/**
- * A request to the mailbox failed. It carries which request, the HTTP status and
- * Google's reason code, and nothing else: the client library's own error holds
- * the request it made, and that request's headers hold the access token.
- */
-/**
- * The filter a rule's record names is not at the provider (#454): asked for by
- * its own id, Gmail answered 404. Thrown only for that lookup, before anything
- * is made, so a 404 from making or removing a filter stays a
- * `ProviderRequestError` and a failure (review of #760).
- */
-export class RuleNotFoundError extends Error {
-  constructor() {
-    super("rule not found at the provider");
-    this.name = "RuleNotFoundError";
-  }
-}
-
-export class ProviderRequestError extends Error {
-  constructor(
-    readonly operation:
-      | "cursor"
-      | "list"
-      | "read"
-      | "changes"
-      | "watch"
-      | "addresses"
-      | "matching"
-      | "home"
-      | "rule"
-      | "file"
-      | "view"
-      | "return"
-      | "size",
-    /** The HTTP status, or 0 when there was none. */
-    readonly status: number,
-    /**
-     * Google's own code for the failure, `error.errors[].reason` in its body
-     * (#375): a 403 is a rate limit, a quota, a domain policy or a permission,
-     * and only this says which. A code, never text: `reasonOf` keeps it only
-     * when it is a short run of letters, so nothing else of the body is carried.
-     */
-    readonly reason: string | null = null,
-  ) {
-    super(
-      `provider request failed at ${operation}: ${status}${reason ? ` ${reason}` : ""}`,
-    );
-    this.name = "ProviderRequestError";
-  }
-
-  /**
-   * The failure as a code: the operation, the status and Google's reason, and
-   * nothing else. What a sync records and a span carries (#445).
-   */
-  get code(): string {
-    return `provider_${this.operation}_${this.status}${this.reason ? `_${this.reason}` : ""}`;
-  }
-
-  /** A limit to wait out rather than a failure: a 429, or a 403 whose reason says so. */
-  get rateLimited(): boolean {
-    return (
-      this.status === 429 ||
-      (this.status === 403 &&
-        this.reason !== null &&
-        RATE_LIMIT_REASONS.has(this.reason))
-    );
-  }
-}
 
 export interface MailboxDeps {
   opener?: TokenOpener;
@@ -544,10 +220,59 @@ const statusOf = (e: unknown): number => {
   return typeof candidate === "number" ? candidate : 0;
 };
 
-/** Run one request, and let nothing of the library's error out but its status and Google's reason code. */
+/**
+ * What a Gmail failure means, in the port's terms (#456). Only this module
+ * knows Gmail's statuses, so only it says what each means; the core reads
+ * the kind.
+ *
+ * - A 404 on `changes` is a cursor older than Gmail keeps history for, the
+ *   documented state DD1 §4.4 recovers from by a full resync.
+ * - A 404 on a request that asks for one thing by its id (`byId`: a message,
+ *   a rule's home, a home's colour) is that thing not there: Gmail answers
+ *   404 for a resource that does not exist, by its API's general rule. A 404
+ *   anywhere else, making or listing, is a failure.
+ * - A 400 on a listing that sent a page token (`paged`) is that token
+ *   refused: Google does not say how long one lives. Without one it is a
+ *   failure.
+ * - A 429, or a 403 whose reason is a rate limit, is a limit to wait out:
+ *   Gmail's guide gives exponential backoff as the remedy for both.
+ */
+/** What a request was, where that decides what its failure means. */
+export interface RequestShape {
+  /** It sent a page token. */
+  paged?: boolean;
+  /** It asked for one thing by its id. */
+  byId?: boolean;
+}
+
+export function failureOf(
+  operation: ProviderRequestError["operation"],
+  status: number,
+  reason: string | null,
+  { paged = false, byId = false }: RequestShape = {},
+): ProviderFailure {
+  if (status === 404) {
+    if (operation === "changes") return "cursor_expired";
+    if (byId) return "gone";
+  }
+  if (status === 400 && paged) return "page_refused";
+  if (
+    status === 429 ||
+    (status === 403 && reason !== null && RATE_LIMIT_REASONS.has(reason))
+  )
+    return "rate_limited";
+  return "failed";
+}
+
+/**
+ * Run one request, and let nothing of the library's error out but its status,
+ * Google's reason code and what they mean. `shape` says what the request was,
+ * which `failureOf` needs to read a 404 or a 400.
+ */
 async function guard<T>(
   operation: ProviderRequestError["operation"],
   run: () => Promise<T>,
+  shape: RequestShape = {},
 ): Promise<T> {
   try {
     return await run();
@@ -563,7 +288,14 @@ async function guard<T>(
       e instanceof ProviderRequestError
     )
       throw e;
-    throw new ProviderRequestError(operation, statusOf(e), reasonOf(e));
+    const status = statusOf(e);
+    const reason = reasonOf(e);
+    throw new ProviderRequestError(
+      operation,
+      status,
+      reason,
+      failureOf(operation, status, reason, shape),
+    );
   }
 }
 
@@ -604,12 +336,31 @@ async function accessToken(
  * directory's tests and not from the index: it takes a client, and nothing
  * outside the chokepoint has one to give it.
  */
+/**
+ * What Gmail can do, in the port's terms (D14 §4, DD16 §4). Filters run as
+ * mail arrives, so they act before delivery (D14 §5); a filter cannot be
+ * edited, so a rule is replaced by making the new one and removing the old
+ * (DD1 §7.5); a message carries many labels, any of them applied to mail
+ * already delivered; and the History API is a delta (DD1 §4.3).
+ */
+export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
+  installsRules: true,
+  rulesActBeforeDelivery: true,
+  rulesEditable: false,
+  canMove: true,
+  canClassifyRetroactively: true,
+  supportsMultipleClassifications: true,
+  incrementalSync: true,
+});
+
 export function mailboxOver(
   provider: ProviderClient,
   /** Awaited before each message read, to keep under the quota (#381). */
   pace: () => Promise<void> = async () => {},
 ): Mailbox {
   return {
+    capabilities: GMAIL_CAPABILITIES,
+    // Gmail's change cursor is its `historyId`.
     historyCursor: () =>
       guard("cursor", async () => {
         const { data } = await provider.users.getProfile({ userId: "me" });
@@ -619,20 +370,27 @@ export function mailboxOver(
         return data.historyId;
       }),
     list: ({ since, before, sent, pageToken, pageSize }) =>
-      guard("list", () =>
-        listEventIds(provider, {
-          query: windowQuery(since, before, sent),
-          pageToken: pageToken ?? undefined,
-          pageSize,
-        }),
+      guard(
+        "list",
+        () =>
+          listEventIds(provider, {
+            query: windowQuery(since, before, sent),
+            pageToken: pageToken ?? undefined,
+            pageSize,
+          }),
+        { paged: pageToken != null },
       ),
     read: async (id, options) => {
       await pace();
-      return guard("read", () => readEvent(provider, id, options));
+      return guard("read", () => readEvent(provider, id, options), {
+        byId: true,
+      });
     },
     oneClick: async (id) => {
       await pace();
-      return guard("read", () => readUnsubscribe(provider, id));
+      return guard("read", () => readUnsubscribe(provider, id), {
+        byId: true,
+      });
     },
     changes: ({ since, pageToken, pageSize }) =>
       guard("changes", () =>
@@ -657,13 +415,18 @@ export function mailboxOver(
         return { expiresAt: new Date(expiresAt) };
       }),
     matching: (scope, options = {}) =>
-      guard("matching", () =>
-        listEventIds(provider, {
-          query: searchFor(scope),
-          pageToken: options.pageToken ?? undefined,
-          pageSize: options.pageSize,
-        }),
+      guard(
+        "matching",
+        () =>
+          listEventIds(provider, {
+            query: searchFor(scope),
+            pageToken: options.pageToken ?? undefined,
+            pageSize: options.pageSize,
+          }),
+        { paged: options.pageToken != null },
       ),
+    // Parent before child: Gmail's labels reference does not say how it
+    // treats a missing parent.
     ensureHome: (path) =>
       guard("home", async () => {
         const byName = await homesByName(provider);
@@ -699,15 +462,19 @@ export function mailboxOver(
         return "shown";
       }),
     homeColour: (homeId) =>
-      guard("home", async () => {
-        // A listing leaves the colour out (`google-2026-gmail-labels-list`).
-        const { data } = await provider.users.labels.get({
-          userId: "me",
-          id: homeId,
-          fields: "color",
-        });
-        return colourOf(data.color ?? null);
-      }),
+      guard(
+        "home",
+        async () => {
+          // A listing leaves the colour out (`google-2026-gmail-labels-list`).
+          const { data } = await provider.users.labels.get({
+            userId: "me",
+            id: homeId,
+            fields: "color",
+          });
+          return colourOf(data.color ?? null);
+        },
+        { byId: true },
+      ),
     colourHome: (homeId, to) =>
       guard("home", async () => {
         await provider.users.labels.patch({
@@ -800,7 +567,9 @@ export function mailboxOver(
         return data.id;
       }),
     ruleHome: (providerRuleId) =>
-      guard("rule", async () => (await homesOf(provider, providerRuleId))[0]!),
+      guard("rule", async () => (await homesOf(provider, providerRuleId))[0]!, {
+        byId: true,
+      }),
     removeRule: (providerRuleId) =>
       guard("rule", () => deleteRule(provider, providerRuleId)),
     fileExisting: (providerEventIds, homeId) =>
@@ -856,6 +625,9 @@ export function mailboxOver(
           });
         }
       }),
+    // Only totals, with Gmail's `fields` parameter. Its reference does not
+    // say whether a system label such as the inbox carries counts, so one it
+    // does not give is null.
     size: () =>
       guard("size", async () => {
         const count = (n: unknown) =>
@@ -904,6 +676,10 @@ export function mailboxOver(
           oldest,
         };
       }),
+    // The primary, and every send-as alias Gmail has verified (`accepted`).
+    // Workspace aliases are not among them: Gmail does not list them here,
+    // and reading them needs an admin-directory scope outside D2, which is
+    // not requested (DD1 §2.3).
     addresses: () =>
       guard("addresses", async () => {
         const { data } = await provider.users.settings.sendAs.list({

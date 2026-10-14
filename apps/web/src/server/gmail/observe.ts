@@ -1,7 +1,13 @@
 import { METADATA_HEADERS } from "./headers";
 import { deriveEvent } from "./derive";
 import type { ProviderClient } from "./client";
-import type { ObservedEvent } from "./types";
+import type {
+  ChangeOptions,
+  ChangePage,
+  ListPage,
+  ObservedEvent,
+  ReadOptions,
+} from "../channel";
 
 /**
  * Observe — the first of the platform's five verbs (D14), and the only one that reads.
@@ -19,18 +25,6 @@ import type { ObservedEvent } from "./types";
  * the unsafe request, which is a stronger guarantee than a caller choosing not
  * to make it.
  */
-
-export interface ListPage {
-  /** Provider ids, for `readEvent`. */
-  providerEventIds: string[];
-  nextPageToken: string | null;
-  /**
-   * The provider's estimate of how many results the whole query has, where it
-   * gives one: Gmail's `resultSizeEstimate`, which Google calls an "estimated
-   * total number of results" and says no more about. A count, never an id.
-   */
-  estimate?: number;
-}
 
 export interface ListOptions {
   /**
@@ -64,41 +58,6 @@ export async function listEventIds(
       ? { estimate: data.resultSizeEstimate }
       : {}),
   };
-}
-
-export interface ChangePage {
-  /** Provider ids of events added in this page of changes, for `readEvent`. */
-  providerEventIds: string[];
-  /**
-   * How events moved in this page (#420): whether each was put in the inbox,
-   * and the handles it was taken out from. Where an arrival was filed, in its
-   * own record or before, is not a move; a record after it is.
-   */
-  moved: MovedEvent[];
-  /**
-   * The last change this page covers. Resuming from it, if the step stops
-   * before the next page, repeats nothing already ingested and misses nothing.
-   */
-  through: string | null;
-  nextPageToken: string | null;
-  /** The mailbox's cursor as of this call: where the next sync starts once every page is read. */
-  cursor: string | null;
-}
-
-/** One event's movement, in Brood's nouns. */
-export interface MovedEvent {
-  providerEventId: string;
-  /** Put in the inbox. */
-  intoView: boolean;
-  /** The handles it was taken out from: opaque, compared with Brood's homes. */
-  outOf: string[];
-}
-
-export interface ChangeOptions {
-  /** The cursor to read changes after. */
-  since: string;
-  pageToken?: string;
-  pageSize?: number;
 }
 
 /**
@@ -166,16 +125,6 @@ export async function listChanges(
     nextPageToken: data.nextPageToken ?? null,
     cursor: data.historyId ?? null,
   };
-}
-
-export interface ReadOptions {
-  /**
-   * The mailbox's own addresses: the primary and every alias known (DD1 §2.3).
-   * An argument rather than an import, per D10 §7, and a list rather than a
-   * string because the account's own address has to be recognised in any form,
-   * so it is never counted among the people an outbound message went to.
-   */
-  accountAddresses: readonly string[];
 }
 
 /**

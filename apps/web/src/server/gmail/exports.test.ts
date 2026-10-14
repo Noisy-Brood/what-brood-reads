@@ -26,8 +26,9 @@ describe("the chokepoint's exports", () => {
     // `revokeMailbox` returns how the grant ended, as a word, and nothing else.
     // `keepGrant` returns nothing: the access token it is given is dropped
     // (#801).
-    // `UnrenderableRuleError` carries nothing of the value it refused, and
-    // `RuleNotFoundError` nothing at all (#454).
+    // `UnrenderableRuleError` carries nothing of the value it refused. The
+    // errors a `Mailbox` throws are the port's, exported by `../channel` and
+    // not here (#456).
     // `homeAtProvider` and `quietedHomeAtProvider` turn a path into a name, and
     // `QUIETED_AT_PROVIDER` is the name quieted homes sit under (#451).
     // `rulesFile` writes Brood's own rules from its record, with no read and
@@ -38,18 +39,14 @@ describe("the chokepoint's exports", () => {
     // `scripts/verify_gmail_reads.mjs` refuses an index that exports either.
     expect(Object.keys(gmail).sort()).toEqual([
       "AuthorizationError",
-      "DraftNotAnEventError",
       "GrantNotRevokedError",
       "HOME_PARENT",
       "METADATA_HEADERS",
-      "MissingArrivalTimeError",
       "PartialGrantError",
-      "ProviderRequestError",
       "PushRejectedError",
       "QUIETED_AT_PROVIDER",
       "READS_PER_MINUTE",
       "RevocationError",
-      "RuleNotFoundError",
       "SCOPES",
       "UnrenderableRuleError",
       "authorizationUrl",
