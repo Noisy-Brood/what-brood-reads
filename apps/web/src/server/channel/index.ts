@@ -26,6 +26,7 @@ export type {
 } from "./events";
 export type {
   HomeColour,
+  HomeParent,
   Mailbox,
   MailboxOpener,
   MailboxSize,

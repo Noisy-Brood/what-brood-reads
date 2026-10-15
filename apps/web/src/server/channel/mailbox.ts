@@ -38,6 +38,15 @@ import type { OneClick } from "./unsubscribe";
  */
 export type HomeColour = "blue" | "green" | "lavender" | "gold" | "muted";
 
+/**
+ * The parents Brood makes to hold homes, which are not homes themselves
+ * (#1124): `root`, the one every home sits under, and `external`, the one the
+ * homes on the `external/` path sit under. Each takes the shared tint and
+ * never a colour of a home's own (DD1 §8.4). How each is named is the
+ * adapter's, as a home's name is.
+ */
+export type HomeParent = "root" | "external";
+
 /** How big a mailbox is (#558). Null where the provider gives no count. */
 export interface MailboxSize {
   messages: number | null;
@@ -149,6 +158,13 @@ export interface Mailbox {
   homeColour(homeId: string): Promise<HomeColour | null | "other">;
   /** Give the home `homeId` the colour `to` (#796). */
   colourHome(homeId: string, to: HomeColour): Promise<void>;
+  /**
+   * The provider's id for each parent Brood makes that is there now, by the
+   * name Brood gives it (#1124). One that is absent is left out and never
+   * made here: `ensureHome` makes a parent with the home it holds. Its colour
+   * is read and set by id with `homeColour` and `colourHome`, as a home's is.
+   */
+  parentHomes(): Promise<Map<HomeParent, string>>;
   /**
    * Install a rule that files what `scope` matches into `homeId`, out of view:
    * the home added and the inbox removed, before delivery. Returns the

@@ -894,6 +894,40 @@ describe("homes", () => {
   });
 });
 
+describe("the parents Brood makes (#1124)", () => {
+  it("finds brood and brood/ext by name, and makes neither", async () => {
+    const created: string[] = [];
+    const found = await mailboxOver(
+      provider({
+        created,
+        labels: [
+          { id: "Lb", name: "brood" },
+          { id: "Le", name: "brood/ext" },
+          { id: "Ls", name: "brood/ext/stripe" },
+          // The person's own, sharing the core's word: not Brood's parent.
+          { id: "Lu", name: "external" },
+        ],
+      }),
+    ).parentHomes();
+    expect(Object.fromEntries(found)).toEqual({ root: "Lb", external: "Le" });
+    expect(created).toEqual([]);
+  });
+
+  it("leaves out a parent that is not there", async () => {
+    const found = await mailboxOver(
+      provider({ labels: [{ id: "Lb", name: "brood" }] }),
+    ).parentHomes();
+    expect(Object.fromEntries(found)).toEqual({ root: "Lb" });
+  });
+
+  it("does not take a system label for a parent", async () => {
+    const found = await mailboxOver(
+      provider({ labels: [{ id: "SPAM", name: "brood", type: "system" }] }),
+    ).parentHomes();
+    expect(found.size).toBe(0);
+  });
+});
+
 describe("a quieted home (#393)", () => {
   it("is named under brood/quieted, keeping its own name", () => {
     expect(quietedHomeAtProvider("external/stripe")).toBe(

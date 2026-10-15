@@ -134,6 +134,7 @@ describe("opening a mailbox", () => {
       "ownRuleWhole",
       "ownRules",
       "ownRulesShown",
+      "parentHomes",
       "read",
       "removeRule",
       "replaceRule",

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ProviderClient } from "./client";
 import { colourOf, GMAIL_COLOURS, GMAIL_LABEL_PALETTE } from "./colours";
@@ -142,4 +144,39 @@ describe("a home's colour at Gmail", () => {
     await m.colourHome("L1", "muted");
     expect(patched).toEqual([{ id: "L1", color: GMAIL_COLOURS.muted }]);
   });
+});
+
+/**
+ * What Classifications draws beside a home (#1124) is the app's own tokens,
+ * never this palette, set to what Gmail draws so a person can match a home
+ * to its label by eye. So a colour changed here is changed there in the same
+ * change, in both schemes, or this fails.
+ */
+describe("the app's colour for each home (#1124)", () => {
+  const TOKENS = fileURLToPath(
+    new URL("../../../../../packages/tokens/", import.meta.url),
+  );
+  const TOKEN: readonly (readonly [HomeColour, string])[] = [
+    ["blue", "home-blue"],
+    ["green", "home-green"],
+    ["lavender", "home-lavender"],
+    ["gold", "home-gold"],
+    ["muted", "home-tint"],
+  ];
+
+  it.each(["theme.css", "dark.css"])(
+    "is Gmail's background for it, in %s",
+    (file) => {
+      const css = readFileSync(`${TOKENS}${file}`, "utf8");
+      for (const [colour, token] of TOKEN) {
+        const found = css.match(
+          new RegExp(`--color-${token}\\s*:\\s*(#[0-9a-fA-F]{6})\\s*;`),
+        );
+        expect([colour, found?.[1]?.toLowerCase()]).toEqual([
+          colour,
+          GMAIL_COLOURS[colour].backgroundColor,
+        ]);
+      }
+    },
+  );
 });

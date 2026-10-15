@@ -33,6 +33,7 @@ import {
 import {
   type Capabilities,
   DraftNotAnEventError,
+  type HomeParent,
   type Mailbox,
   MissingArrivalTimeError,
   type ProviderFailure,
@@ -127,6 +128,16 @@ async function homesByName(
       .map((l) => [l.name!, l.id!]),
   );
 }
+
+/**
+ * The name each parent Brood makes has in Gmail (#1124): `brood`, and
+ * `brood/ext`, which `homeAtProvider` makes for the homes on `external/`.
+ * Read from the functions that name the homes, so the two cannot disagree.
+ */
+const PARENTS_AT_PROVIDER: readonly (readonly [HomeParent, string])[] = [
+  ["root", HOME_PARENT],
+  ["external", homeAtProvider("external")],
+];
 
 /**
  * The id of the label `name`, each part of it found or made, parent first, so
@@ -482,6 +493,16 @@ export function mailboxOver(
           id: homeId,
           requestBody: { color: GMAIL_COLOURS[to] },
         });
+      }),
+    parentHomes: () =>
+      guard("home", async () => {
+        const byName = await homesByName(provider);
+        const found = new Map<HomeParent, string>();
+        for (const [parent, name] of PARENTS_AT_PROVIDER) {
+          const id = byName.get(name);
+          if (id) found.set(parent, id);
+        }
+        return found;
       }),
     installRule: (scope, homeId, identity) =>
       guard("rule", () => createRule(provider, scope, [homeId], identity)),
