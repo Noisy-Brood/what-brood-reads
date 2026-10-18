@@ -57,8 +57,8 @@ export function readTree(
     .filter((p) => !include || include.test(p.split("/").at(-1)))
     .filter((p) => !excludeFiles.includes(p))
     .flatMap((path) => {
-      const buffer = readFileSync(path);
-      return buffer.includes(0)
+      const buffer = readUnlessGone(path);
+      return buffer === null || buffer.includes(0)
         ? []
         : [{ path, text: buffer.toString("utf8") }];
     });
@@ -140,7 +140,9 @@ export function readTracked(
  * are not followed, as `grep -r` does not follow them; a directory named in
  * `excludeDirs` is skipped at any depth, and with `excludeHidden` so is any
  * file or directory whose name starts with a dot. A root that does not exist is the caller's to
- * refuse, and each caller that walks a build or a surface already has.
+ * refuse, and each caller that walks a build or a surface already has. A
+ * folder removed beneath a root as it is walked is passed over; a caller that
+ * reads what it lists reads through `readUnlessGone`.
  *
  * @param {string[]} roots
  * @param {{ excludeDirs?: string[], excludeHidden?: boolean }} [opts]
@@ -150,18 +152,50 @@ export function listTree(
   roots,
   { excludeDirs = [], excludeHidden = false } = {},
 ) {
-  const walk = (dir) =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+  const walk = (dir, root) =>
+    entriesOf(dir, root).flatMap((e) => {
       if (e.isSymbolicLink()) return [];
       // A hidden file is left out as a hidden folder is, before either is
       // read as one or the other.
       if (excludeHidden && e.name.startsWith(".")) return [];
       const path = toPosix(dir === "." ? e.name : join(dir, e.name));
       if (e.isDirectory())
-        return excludeDirs.includes(e.name) ? [] : walk(path);
+        return excludeDirs.includes(e.name) ? [] : walk(path, false);
       return e.isFile() ? [path] : [];
     });
-  return roots.flatMap(walk);
+  return roots.flatMap((root) => walk(root, true));
+}
+
+// What another process removes between the walk listing it and reading it was
+// never the tree's: the a11y check's Playwright removes test-results while
+// verify walks beside it (#1388). A root that is gone is still the caller's to
+// refuse, so only what lies beneath one is let go.
+const isGone = (e) => e?.code === "ENOENT";
+
+function entriesOf(dir, root) {
+  try {
+    return readdirSync(dir, { withFileTypes: true });
+  } catch (e) {
+    if (root || !isGone(e)) throw e;
+    return [];
+  }
+}
+
+/**
+ * A listed file's bytes, or null if another process removed it after the walk
+ * listed it. Any other failure to read throws. A check that reads what
+ * `listTree` gives it reads through this, as `readTree` does.
+ *
+ * @param {string} path
+ * @returns {Buffer | null}
+ */
+export function readUnlessGone(path) {
+  try {
+    return readFileSync(path);
+  } catch (e) {
+    if (!isGone(e)) throw e;
+    return null;
+  }
 }
 
 /** Every line matching `pattern`, as `path:line:text`. */
