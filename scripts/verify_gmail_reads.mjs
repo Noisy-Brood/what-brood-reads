@@ -40,7 +40,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { loadTypeScript } from "./lib/typescript.mjs";
 import { dirname, posix } from "node:path";
 import { maskComments } from "./lib/mask.mjs";
-import { BUILD_DIRS, CODE as CODE_PATH, listTree } from "./lib/tree.mjs";
+import {
+  BUILD_DIRS,
+  CODE as CODE_PATH,
+  listTree,
+  TEST_FILE,
+} from "./lib/tree.mjs";
 import { codeContainers } from "./lib/workspaces.mjs";
 import { failed } from "./lib/report.mjs";
 
@@ -57,10 +62,9 @@ const files = listTree(ROOTS, { excludeDirs: [...SKIP] }).filter((p) =>
 );
 let fail = false;
 
-// A test, or a test's support (#789): a typed stand-in for the client, which
-// writes the client's resources as keys. Support is held to being test-only
-// below: nothing but a test may import it.
-const TEST_FILE = /\.test(-support)?\.[cm]?[jt]sx?$/;
+// A test's support (#789) is a typed stand-in for the client, which writes
+// the client's resources as keys. Support is held to being test-only below:
+// nothing but a test (`TEST_FILE`) may import it.
 const TEST_SUPPORT = /\.test-support(\.[cm]?[jt]sx?)?$/;
 const say = (m) => console.log(`  ${m}`);
 

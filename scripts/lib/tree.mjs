@@ -234,3 +234,10 @@ export const endingIn = (extensions) =>
 
 /** A path that is code. */
 export const CODE = endingIn(CODE_EXTENSIONS);
+
+/**
+ * A test, or a test's support (#789): one pattern for the check that holds
+ * support to being test-only and for the mirror, which carries neither
+ * (#1410).
+ */
+export const TEST_FILE = /\.test(-support)?\.[cm]?[jt]sx?$/;
