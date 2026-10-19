@@ -21,8 +21,8 @@ export interface ObservedEvent {
   providerEventId: string;
 
   /**
-   * RFC 5322 `Message-ID`, the identity that means the same thing at both
-   * providers. Nullable on purpose: DD16 §3 records that it is conventionally
+   * RFC 5322 `Message-ID`, the identity that means the same thing at every
+   * provider. Nullable on purpose: DD16 §3 records that it is conventionally
    * universal and not actually guaranteed — some senders omit it, some
    * duplicate it — so deduplication falls back to `providerEventId` where it is
    * absent, and a collision is two events that look alike rather than one event.

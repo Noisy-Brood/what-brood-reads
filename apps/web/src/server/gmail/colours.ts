@@ -3,9 +3,8 @@
  * rendering of a classification, never part of the decision (DD16 §1): the
  * core chooses which colour each home has and in what order colours are given
  * (`server/rules/colours.ts`), and this module only draws them. Gmail takes a
- * pair of hex values from a fixed list. Microsoft takes a preset whose shade
- * depends on the client (`microsoft-2026-outlook-category`), so an adapter
- * there would map each colour to its nearest preset.
+ * pair of hex values from a fixed list; another provider's adapter maps each
+ * colour to what that provider accepts.
  */
 
 import type { HomeColour } from "../channel";
@@ -44,7 +43,7 @@ export interface LabelColour {
  * pure black or white. Blue's and green's text is Gmail's near-white, the
  * only text in its list that reaches 4.5:1 on green; it is text, not a mark
  * standing for data, so #655's rule is about the backgrounds. The pale tint
- * is Tim's choice over grey (#796): quiet, not gone.
+ * was chosen over grey (#796): quiet, not gone.
  */
 export const GMAIL_COLOURS: Readonly<Record<HomeColour, LabelColour>> = {
   blue: { backgroundColor: "#285bac", textColor: "#f3f3f3" },

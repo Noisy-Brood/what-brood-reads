@@ -281,7 +281,7 @@ export interface Mailbox {
  * Open one account's mailbox, reading its token through `on`: the transaction
  * a caller holds, when it holds one. Read through the pool instead, an open
  * inside a transaction waits for a second connection, and on a pool of one it
- * waits for ever: `make reconcile` hung that way on its first mailbox (#444).
+ * waits for ever: a pass hung that way on its first mailbox (#444).
  * disconnect opened this way from the start.
  *
  * The handle comes first, as it does in `openMailbox`, and on purpose: an

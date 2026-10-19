@@ -751,9 +751,9 @@ async function createRule(
   if (!heldAsSent({ scope, identity }, data.criteria)) {
     // Tried twice. A filter that still will not go carries this rule's tag.
     // Made to replace a rule, it sits beside the recorded filter, and the
-    // hourly sweep removes it as a replacement whose cleanup failed; made for a
+    // rules sweep removes it as a replacement whose cleanup failed; made for a
     // rule not yet recorded, the sweep reports it and leaves it, as it does any
-    // tag nothing records (`rules/sweep.ts`). The error says it was left.
+    // tag nothing records. The error says it was left.
     try {
       await deleteRule(provider, data.id);
     } catch {
@@ -882,8 +882,8 @@ export async function openMailbox(
  * Use the account's refresh token, and nothing else (#801, D4 §3): trade it
  * for an access token and drop that. Google expires a refresh token unused
  * for six months (`google-2026-oauth2-refresh-expiry`, E12 §6), so a stopped
- * mailbox's is used monthly. An OAuth call, so no Gmail request and no Gmail
- * quota. Read for `keepalive`. A revoked grant is `TokenRevokedError`, as
+ * mailbox's is used well inside that. An OAuth call, so no Gmail request and
+ * no Gmail quota. Read for `keepalive`. A revoked grant is `TokenRevokedError`, as
  * anywhere else.
  */
 export async function keepGrant(

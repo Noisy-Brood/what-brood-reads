@@ -67,7 +67,7 @@ export function deriveEvent(
 
   // `occurredAt` is `internalDate` and never the `Date` header, which is not
   // pedantry. `Date` is written by the sending system, so a sender can backdate
-  // a message — filing the event in the wrong monthly partition, outside the
+  // a message — filing the event in the wrong period, outside the
   // window a threshold query reads, and out of step with the `after:` operator
   // that bounds backfill, which works on Google's internal time. DD11 §1 defines
   // an event as a fact about arrival. `internalDate` is when it arrived; `Date`
@@ -75,7 +75,7 @@ export function deriveEvent(
   const epochMs = Number(message.internalDate);
   if (!message.internalDate || !Number.isFinite(epochMs)) {
     // Refused rather than defaulted. Substituting the current time would place
-    // the event in a partition it does not belong to and look like success —
+    // the event in a period it does not belong to and look like success —
     // and `conventions/security.md` says an uncertain operation takes no action.
     throw new MissingArrivalTimeError(providerEventId);
   }

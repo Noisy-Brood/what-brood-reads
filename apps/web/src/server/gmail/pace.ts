@@ -5,7 +5,7 @@
  * (https://developers.google.com/workspace/gmail/api/reference/quota): 300 reads.
  * Read as fast as Gmail answers, a backfill does 500 to 1,000 a minute, meets
  * the limit, and waits: a minute locally, and in production until the next
- * pass, five minutes on. Spaced under the ceiling instead, it never meets it
+ * pass. Spaced under the ceiling instead, it never meets it
  * in the ordinary case, and a pass spends its budget reading.
  *
  * Per account, since the limit is per user. The state lives for the process, so
@@ -15,8 +15,8 @@
  * prevent; a limit met anyway is still waited out (`rateLimited`). That covers
  * one mailbox connected by two Brood users too: each account has its own
  * allowance, so together they can meet the limit, and wait it out. Keying by the
- * mailbox's address instead would need this module to query the accounts
- * table (D10 §7), or a call to Gmail at every open (review of #382).
+ * mailbox's address instead would need this module to query the database
+ * (D10 §7), or a call to Gmail at every open (review of #382).
  */
 
 /** Under the 300 a minute a read costs, with room for the listings between. */

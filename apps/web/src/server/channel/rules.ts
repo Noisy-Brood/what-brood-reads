@@ -7,8 +7,8 @@
 /**
  * Brood's rule, provider-neutral: one address or a domain and everything under
  * it, and the exact addresses and root domains carved out of it (DD1 §7.5).
- * How it is written at a provider is the adapter's: Gmail's search syntax,
- * Microsoft's predicates.
+ * How it is written at a provider is the adapter's: Gmail's search syntax, or
+ * another provider's own.
  */
 export interface RuleScope {
   from: { kind: "address" | "domain"; value: string };

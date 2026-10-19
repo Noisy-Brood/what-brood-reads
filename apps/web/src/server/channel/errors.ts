@@ -1,8 +1,8 @@
 /**
  * What a provider's failure means to Brood, decided by the adapter that knows
  * the provider (D14 §4, #456). Gmail answers 404 for a cursor too old to
- * resume from and for a message that is gone, and Microsoft Graph answers
- * neither with 404 (D22 §4). So the core reads `kind` and never a status: a
+ * resume from and for a message that is gone, and another provider need not
+ * (D22 §4). So the core reads `kind` and never a status: a
  * status means what its provider says it means, and only the adapter has read
  * that provider's documentation.
  *

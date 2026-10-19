@@ -5,7 +5,7 @@ import type { RuleScope } from "../channel";
  * Brood's rules as Gmail's own filter file, the `.xml` its *Import filters*
  * takes (D21 §3, #1108). Google's help does not document the format
  * (`google-2026-gmail-filters-help`), so it is the one Gmail's *Export* wrote
- * for the filters Brood installed in a real mailbox (Tim, 2026-10-12, on
+ * for the filters Brood installed in a real mailbox (2026-10-12, on
  * #1108): an Atom feed, one entry per filter, each criterion and action an
  * `apps:property`. Brood's query is `hasTheWord` and its carve-outs
  * `doesNotHaveTheWord`, each exactly as Gmail holds them; the home is the
