@@ -548,7 +548,10 @@ let ruleLists = 0;
 // built from a string is a read the parse does not see as a call, so any other
 // string or template naming the host fails. The profile is the one fetch made
 // before a client exists, to learn whose mailbox was just connected.
-const GMAIL_HOST = "gmail.googleapis.com";
+// A string naming the host anywhere: wider than a URL's host, on purpose,
+// since every match is read and only the whole URLs below pass. A pattern,
+// not a substring test, which reads as a host check it is not (#1412).
+const NAMES_GMAIL_HOST = /gmail\.googleapis\.com/;
 const GMAIL_URLS = new Set([
   "https://gmail.googleapis.com/gmail/v1/users/me/profile",
 ]);
@@ -622,7 +625,7 @@ for (const [f, file] of parsed) {
       ts.isTemplateTail(node)
         ? node.text
         : null;
-    if (text === null || !text.includes(GMAIL_HOST)) return;
+    if (text === null || !NAMES_GMAIL_HOST.test(text)) return;
     const whole =
       ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
     if (!whole || !GMAIL_URLS.has(text))
