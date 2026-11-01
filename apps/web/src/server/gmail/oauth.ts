@@ -14,7 +14,11 @@
  * address and `fetch` itself arrive as arguments.
  */
 
-import type { Redeemed } from "../channel";
+import {
+  GrantNotRevokedError,
+  PartialGrantError,
+  type Redeemed,
+} from "../channel";
 import {
   AuthorizationError,
   revokeToken,
@@ -27,53 +31,7 @@ import {
 const revoke = async (refreshToken: string, fetchFn: Fetch) =>
   (await revokeToken(refreshToken, fetchFn)) === 200;
 
-export { AuthorizationError };
-
-/**
- * Google granted some of `SCOPES` and not all (#598). Its granular consent
- * screen lets a person untick a scope when more than one is asked for, and an
- * app "must verify which scopes were actually granted" (Google's
- * web-server OAuth guide). Brood cannot work with part of D2's grant, so the
- * grant is revoked before this is thrown. `missing` is the scopes not granted,
- * which are public strings and no secret. `revoked` is whether Google
- * confirmed the revocation: only its 200 does (`google-2026-oauth-revoke`),
- * and a grant it did not confirm is one the person is told to remove (review
- * of #614).
- */
-export class PartialGrantError extends Error {
-  constructor(
-    readonly missing: readonly string[],
-    readonly revoked: boolean,
-  ) {
-    super("partial grant");
-    this.name = "PartialGrantError";
-  }
-}
-
-/**
- * The profile read failed after Google minted a grant, and Google did not
- * confirm taking the grant back (#615): only its 200 does
- * (`google-2026-oauth-revoke`). The grant is live at Google and nothing holds
- * its token, so the person is told to remove it. It carries nothing of the
- * failure or the grant: a code for the log, and that is all.
- */
-export class GrantNotRevokedError extends Error {
-  constructor(
-    /**
-     * The class of the failure that started it, for the operator's line,
-     * never its message (review of #681): a profile read that failed and a
-     * network that did are different incidents.
-     */
-    readonly first: string,
-  ) {
-    super("grant not revoked");
-    this.name = "GrantNotRevokedError";
-  }
-
-  get code(): string {
-    return "connect_grant_not_revoked";
-  }
-}
+export { AuthorizationError, GrantNotRevokedError, PartialGrantError };
 
 /**
  * The scopes of `SCOPES` a token response did not grant: its `scope` is

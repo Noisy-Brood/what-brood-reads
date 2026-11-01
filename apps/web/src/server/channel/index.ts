@@ -12,6 +12,12 @@ export {
   RuleNotFoundError,
 } from "./errors";
 export type { ProviderFailure } from "./errors";
+export {
+  AuthorizationError,
+  GrantNotRevokedError,
+  PartialGrantError,
+  RevocationError,
+} from "./grant";
 export type {
   Addressed,
   ChangeOptions,
@@ -44,7 +50,6 @@ export type {
 } from "./rules";
 export type {
   Provider,
-  ProviderId,
   Providers,
   Redeemed,
   Revocation,

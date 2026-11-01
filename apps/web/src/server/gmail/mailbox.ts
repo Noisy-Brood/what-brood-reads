@@ -40,6 +40,7 @@ import {
   ProviderRequestError,
   type RecordedRule,
   type Revocation,
+  RevocationError,
   type RuleIdentity,
   RuleNotFoundError,
   type RuleScope,
@@ -899,17 +900,6 @@ export async function keepGrant(
     await opener.open(sql, ref, "keepalive"),
     deps.fetchFn ?? fetch,
   );
-}
-
-/**
- * Google did not confirm a revocation: its HTTP status, or 0 when the request never
- * completed. Nothing else, since the request held the refresh token.
- */
-export class RevocationError extends Error {
-  constructor(readonly status: number) {
-    super(`revocation not confirmed: ${status}`);
-    this.name = "RevocationError";
-  }
 }
 
 /**

@@ -9,36 +9,14 @@
  * exported to this directory's modules and not from the index.
  */
 
+import { AuthorizationError } from "../channel";
+
+export { AuthorizationError };
+
 export const TOKEN = "https://oauth2.googleapis.com/token";
 const REVOKE = "https://oauth2.googleapis.com/revoke";
 
 export type Fetch = typeof fetch;
-
-export class AuthorizationError extends Error {
-  constructor(
-    /** What failed: the exchange, the profile read, or refreshing an access token. */
-    readonly step: "exchange" | "profile" | "refresh",
-    /** The HTTP status, or 0 when the request never completed. */
-    readonly status: number,
-    /** Google's own error code, such as `invalid_grant`, when it gave one. */
-    readonly providerCode: string | null,
-  ) {
-    super(
-      `authorization failed at ${step}: ${status}${providerCode ? ` ${providerCode}` : ""}`,
-    );
-    this.name = "AuthorizationError";
-  }
-
-  /**
-   * The failure as a code: the step, the status and Google's code (#445).
-   * Recorded as the class name alone before, so a rotated client secret or an
-   * outage at Google's token endpoint stalled every mailbox with no cause to
-   * read.
-   */
-  get code(): string {
-    return `auth_${this.step}_${this.status}${this.providerCode ? `_${this.providerCode}` : ""}`;
-  }
-}
 
 /** Google's error code from a failed response, if it sent one. Never the body. */
 async function providerCode(response: Response): Promise<string | null> {

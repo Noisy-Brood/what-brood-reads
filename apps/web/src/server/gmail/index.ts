@@ -32,12 +32,7 @@
  */
 // The code exchange and the profile read are not exported: they hold tokens.
 // `redeemCode` returns a sealer, never a token (DD1 §11).
-export {
-  AuthorizationError,
-  GrantNotRevokedError,
-  PartialGrantError,
-  SCOPES,
-} from "./oauth";
+export { SCOPES } from "./oauth";
 export type { OAuthClient } from "./oauth";
 // Not exported: the raw client (`./client`) and the read functions that take one
 // (`listEventIds`, `readEvent`, `readUnsubscribe`). Outside this directory Gmail is reached through a
@@ -46,7 +41,6 @@ export type { OAuthClient } from "./oauth";
 // `../channel` and never re-exported here, so each has one path (#456).
 // Connecting, opening and revoking are reached through the port's `Provider`
 // (#1180), so the functions behind it stay inside.
-export { RevocationError } from "./mailbox";
 export type { MailboxDeps } from "./mailbox";
 // The port's `Provider`, for the registry (`server/providers.ts`), and for
 // connect's tests, which read Google's own consent address.

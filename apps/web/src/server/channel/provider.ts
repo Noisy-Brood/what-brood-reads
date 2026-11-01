@@ -9,11 +9,12 @@ import type postgres from "postgres";
 import type { AccountRef, ReadReason } from "../tokens";
 import type { Mailbox } from "./mailbox";
 
-/** The providers Brood connects, as `accounts.provider` names them. */
-export type ProviderId = "gmail";
-
-/** How the grant ended: revoked now, or found already dead, by the provider's own answer. */
-export type Revocation = "revoked" | "already_revoked";
+/**
+ * How the grant ended, by the provider's own answer: revoked now, found
+ * already dead, or left at the provider, which offers no revocation Brood can
+ * make, for the person to remove there (D22 §7).
+ */
+export type Revocation = "revoked" | "already_revoked" | "left_at_provider";
 
 /** Where a refresh token is sealed. Described here rather than imported (D10 §7). */
 export interface Sealer<Tx> {
@@ -49,7 +50,12 @@ type Handle = postgres.Sql | postgres.TransactionSql;
 
 /** One provider, configured: its client's id, secret and redirect address held inside. */
 export interface Provider {
-  readonly id: ProviderId;
+  /**
+   * As `accounts.provider` and `oauth_states.provider` name it. A string
+   * here, since the port is published (D10 §3) and names no provider; the
+   * registry holds the names.
+   */
+  readonly id: string;
   /** Where to send the person to consent, for the state and PKCE challenge given. */
   authorizationUrl(state: string, codeChallenge: string): string;
   /** Redeem a code: a sealer for its refresh token, never the token (DD1 §11). */
@@ -66,6 +72,6 @@ export interface Provider {
 export interface Providers {
   /** The provider of the account `ref`, read on the handle given. */
   of(on: Handle, ref: AccountRef): Promise<Provider>;
-  /** By name, for connect, before the account exists. */
-  named(id: ProviderId): Provider;
+  /** By name, for connect, before the account exists. Refuses a name it has no adapter for. */
+  named(id: string): Provider;
 }
