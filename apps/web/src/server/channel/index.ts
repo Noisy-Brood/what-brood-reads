@@ -42,4 +42,12 @@ export type {
   RuleIdentity,
   RuleScope,
 } from "./rules";
+export type {
+  Provider,
+  ProviderId,
+  Providers,
+  Redeemed,
+  Revocation,
+  Sealer,
+} from "./provider";
 export type { NoOneClick, OneClick, UnsubscribeAddress } from "./unsubscribe";

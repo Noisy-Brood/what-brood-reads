@@ -39,6 +39,7 @@ import {
   type ProviderFailure,
   ProviderRequestError,
   type RecordedRule,
+  type Revocation,
   type RuleIdentity,
   RuleNotFoundError,
   type RuleScope,
@@ -910,9 +911,6 @@ export class RevocationError extends Error {
     this.name = "RevocationError";
   }
 }
-
-/** How the grant ended: revoked now, or found already dead, by Google's own answer. */
-export type Revocation = "revoked" | "already_revoked";
 
 /**
  * End Brood's grant to the account's mailbox (DD14 §4, #223). The half of a

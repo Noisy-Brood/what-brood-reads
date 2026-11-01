@@ -34,25 +34,23 @@
 // `redeemCode` returns a sealer, never a token (DD1 §11).
 export {
   AuthorizationError,
-  authorizationUrl,
   GrantNotRevokedError,
   PartialGrantError,
-  redeemCode,
   SCOPES,
 } from "./oauth";
-export type { OAuthClient, Redeemed, Sealer } from "./oauth";
+export type { OAuthClient } from "./oauth";
 // Not exported: the raw client (`./client`) and the read functions that take one
 // (`listEventIds`, `readEvent`, `readUnsubscribe`). Outside this directory Gmail is reached through a
 // `Mailbox` and nothing else, and `scripts/verify_gmail_reads.mjs` holds it there.
 // The `Mailbox`, its types and its errors are the port's, imported from
 // `../channel` and never re-exported here, so each has one path (#456).
-export {
-  keepGrant,
-  openMailbox,
-  RevocationError,
-  revokeMailbox,
-} from "./mailbox";
-export type { MailboxDeps, Revocation } from "./mailbox";
+// Connecting, opening and revoking are reached through the port's `Provider`
+// (#1180), so the functions behind it stay inside.
+export { RevocationError } from "./mailbox";
+export type { MailboxDeps } from "./mailbox";
+// The port's `Provider`, for the registry (`server/providers.ts`), and for
+// connect's tests, which read Google's own consent address.
+export { gmailProvider } from "./provider";
 export { PushRejectedError, verifyPush } from "./push";
 export type { PushConfig, PushDeps, PushRefusal, SigningKeys } from "./push";
 export type { ListOptions } from "./observe";

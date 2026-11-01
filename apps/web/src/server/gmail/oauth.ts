@@ -14,6 +14,7 @@
  * address and `fetch` itself arrive as arguments.
  */
 
+import type { Redeemed } from "../channel";
 import {
   AuthorizationError,
   revokeToken,
@@ -186,35 +187,6 @@ async function readAddress(
     throw new AuthorizationError("profile", 200, "no_address");
   }
   return body.emailAddress.trim().toLowerCase();
-}
-
-/** Where a refresh token is sealed. Described here rather than imported (D10 §7). */
-export interface Sealer<Tx> {
-  seal(
-    sql: Tx,
-    ref: { userId: string; accountId: string },
-    refreshToken: string,
-  ): Promise<void>;
-}
-
-/**
- * A redeemed authorization, as the rest of the app may hold it: the mailbox's
- * address, and the only two things it can do with the refresh token, which is
- * seal it or give it up.
- */
-export interface Redeemed {
-  address: string;
-  sealInto<Tx>(
-    vault: Sealer<Tx>,
-    sql: Tx,
-    ref: { userId: string; accountId: string },
-  ): Promise<void>;
-  /**
-   * Revoke the refresh token at Google, for a caller that could not seal it.
-   * Google has already minted it, so a token that is dropped instead is a live
-   * grant to the mailbox that nobody holds and nobody will revoke.
-   */
-  discard(): Promise<boolean>;
 }
 
 /**
