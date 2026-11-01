@@ -23,4 +23,11 @@ export interface Capabilities {
   supportsMultipleClassifications: boolean;
   /** A cheap delta of changes, or only a full re-enumeration. */
   incrementalSync: boolean;
+  /**
+   * The mailbox pushes a notice of each change, through `watch`. Without it
+   * the sync cron reads from the cursor on its schedule and nothing is
+   * watched: no watch is installed, and no arrival is counted as one a push
+   * failed to announce (#374).
+   */
+  pushes: boolean;
 }

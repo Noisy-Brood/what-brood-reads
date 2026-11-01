@@ -364,6 +364,8 @@ export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
   canClassifyRetroactively: true,
   supportsMultipleClassifications: true,
   incrementalSync: true,
+  // Through Pub/Sub, to the topic the sync is given (DD1 §4.2).
+  pushes: true,
 });
 
 export function mailboxOver(

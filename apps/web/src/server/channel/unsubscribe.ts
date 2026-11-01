@@ -12,7 +12,12 @@ export type NoOneClick =
   /** No signature the provider passed that covers both unsubscribe headers. */
   | "not_signed"
   /** A covering signature passed, but not the sender's own domain's. */
-  | "not_aligned";
+  | "not_aligned"
+  /**
+   * The provider gives Brood no way to read the headers that say, without
+   * fetching every header and the subject with them (D22 §3).
+   */
+  | "unreadable";
 
 /**
  * What a caller may do with the address: post to it. An adapter hands out a
