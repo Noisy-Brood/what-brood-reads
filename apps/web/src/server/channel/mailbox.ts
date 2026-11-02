@@ -234,9 +234,10 @@ export interface Mailbox {
    * What the person's own rules name, with certainty, where they take that
    * mail somewhere (D21 §1, #1107): an exact address or a domain, and never a
    * rule's own text. Listed through the one mask, so nothing else a rule
-   * matches arrives.
+   * matches arrives. Brood's own are left out, told apart by `recorded` as
+   * `listRules` does.
    */
-  ownRules(): Promise<OwnRule[]>;
+  ownRules(recorded: readonly RecordedRule[]): Promise<OwnRule[]>;
   /**
    * The person's own rules, for them to see beside Brood's, on their press
    * (D21 §4, #1109): each naming one sender for certain, with the person's
