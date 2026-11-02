@@ -170,6 +170,11 @@ export interface Mailbox {
    * the name Brood gave it, which is the person's doing and not undone (DD1
    * §8), where the name it would take is in use, or where it has homes under
    * it. `shown` where it is shown so now, whether or not this call renamed it.
+   *
+   * A provider whose homes cannot be renamed shows a quieted home under its
+   * own name, and answers `shown` for either while the home is there under
+   * the name Brood gave it (#1180): its quieted mail is still filed out of
+   * view, and nothing marks the home quieted.
    */
   showHome(
     homeId: string,

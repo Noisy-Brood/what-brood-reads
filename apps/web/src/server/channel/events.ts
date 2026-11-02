@@ -173,6 +173,12 @@ export interface ReadOptions {
 export interface PageOptions {
   pageToken?: string | null;
   pageSize?: number;
+  /**
+   * For `matching` a domain at a provider that cannot search by one
+   * (`searchesByDomain`): the addresses under it the index has seen, its
+   * carve-outs already taken out, in order (#1180).
+   */
+  senders?: readonly string[];
 }
 
 export interface WindowOptions {

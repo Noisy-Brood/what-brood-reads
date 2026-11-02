@@ -53,15 +53,7 @@ export { deriveEvent } from "./derive";
 export { METADATA_HEADERS } from "./headers";
 // A type only: an address is made by the read, never outside it.
 export type { UnsubscribeUrl } from "./unsubscribe";
-export {
-  HOME_PARENT,
-  homeAtProvider,
-  quietedHomeAtProvider,
-  QUIETED_AT_PROVIDER,
-  renderable,
-  renderableValue,
-  UnrenderableRuleError,
-} from "./rules";
+export { renderable, renderableValue } from "./rules";
 export { rulesFile, type RuleToWrite } from "./filter-file";
 
 export type { ProviderMessage } from "./types";

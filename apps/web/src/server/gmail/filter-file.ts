@@ -1,4 +1,5 @@
-import { homeAtProvider, quietedHomeAtProvider, renderRule } from "./rules";
+import { homeAtProvider, quietedHomeAtProvider } from "../channel";
+import { renderRule } from "./rules";
 import type { RuleScope } from "../channel";
 
 /**

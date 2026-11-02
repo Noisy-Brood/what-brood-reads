@@ -111,3 +111,16 @@ export class DraftNotAnEventError extends Error {
     this.name = "DraftNotAnEventError";
   }
 }
+
+/**
+ * A value in a scope is not plainly an address or a domain, or a home's path
+ * cannot be named at the provider. It carries nothing
+ * of the value: that is a sender's address, and D8 §7 keeps sender addresses
+ * out of every error report.
+ */
+export class UnrenderableRuleError extends Error {
+  constructor() {
+    super("a rule value is not a plain address or domain");
+    this.name = "UnrenderableRuleError";
+  }
+}

@@ -10,6 +10,12 @@ import type { OAuthClient } from "./oauth";
 import { listChanges, listEventIds, readEvent } from "./observe";
 import { readUnsubscribe } from "./unsubscribe";
 import {
+  HOME_PARENT,
+  homeAtProvider,
+  quietedHomeAtProvider,
+  UnrenderableRuleError,
+} from "../channel";
+import {
   AuthorizationError,
   revokeToken,
   sendJson,
@@ -19,16 +25,12 @@ import {
 import {
   broodRuleOf,
   heldAsSent,
-  HOME_PARENT,
-  homeAtProvider,
-  quietedHomeAtProvider,
   adoptableOf,
   describeOwnRules,
   ownRuleOf,
   type ProviderRule,
   renderRule,
   searchFor,
-  UnrenderableRuleError,
 } from "./rules";
 import {
   type Capabilities,
@@ -365,6 +367,8 @@ export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
   canMove: true,
   canClassifyRetroactively: true,
   supportsMultipleClassifications: true,
+  // `from:` takes a domain and everything under it (DD1 §7.5).
+  searchesByDomain: true,
   incrementalSync: true,
   // Through Pub/Sub, to the topic the provider is built with (DD1 §4.2).
   pushes: true,

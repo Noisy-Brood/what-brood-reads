@@ -21,6 +21,12 @@ export interface Capabilities {
   canClassifyRetroactively: boolean;
   /** An item can carry many classifications, or only one home. */
   supportsMultipleClassifications: boolean;
+  /**
+   * Mail can be searched for by its sender's domain. Without it, `matching`
+   * a domain is given the addresses the index has seen under it, and the
+   * provider matches each (#1180).
+   */
+  searchesByDomain: boolean;
   /** A cheap delta of changes, or only a full re-enumeration. */
   incrementalSync: boolean;
   /**
