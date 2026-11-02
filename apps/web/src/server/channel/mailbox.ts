@@ -103,11 +103,14 @@ export interface Mailbox {
    */
   changes(options: ChangeOptions): Promise<ChangePage>;
   /**
-   * Ask the provider to push a notice of each change to `topic`, or renew the
-   * request. It lasts until `expiresAt`, and a watch that lapses looks exactly
-   * like a quiet mailbox (DD1 §4.2).
+   * Ask the provider to push a notice of each change, or renew the request.
+   * Where it pushes is the provider's own, set when the provider is built, so
+   * the core never names a topic or an address; a mailbox opened with nowhere
+   * to push declares `pushes` false and is never asked (#1180). It lasts
+   * until `expiresAt`, and a watch that lapses looks exactly like a quiet
+   * mailbox (DD1 §4.2).
    */
-  watch(topic: string): Promise<{ expiresAt: Date }>;
+  watch(): Promise<{ expiresAt: Date }>;
   /**
    * The mailbox's own addresses, as far as the provider will say: the primary,
    * and every alias it has verified as the person's. An unverified one is left

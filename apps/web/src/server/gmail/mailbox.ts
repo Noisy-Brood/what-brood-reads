@@ -200,6 +200,8 @@ export interface MailboxDeps {
   reason: ReadReason;
   /** What spaces message reads, per account (#381). The process's own unless given. */
   pacer?: Pacer;
+  /** Where a watch asks Gmail to push, or null for nowhere. None unless given. */
+  topic?: string | null;
 }
 
 /**
@@ -364,17 +366,25 @@ export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
   canClassifyRetroactively: true,
   supportsMultipleClassifications: true,
   incrementalSync: true,
-  // Through Pub/Sub, to the topic the sync is given (DD1 §4.2).
+  // Through Pub/Sub, to the topic the provider is built with (DD1 §4.2).
   pushes: true,
+});
+
+/** Gmail's, opened with no topic to push to: local development (#362). */
+const GMAIL_UNWATCHED: Capabilities = Object.freeze({
+  ...GMAIL_CAPABILITIES,
+  pushes: false,
 });
 
 export function mailboxOver(
   provider: ProviderClient,
   /** Awaited before each message read, to keep under the quota (#381). */
   pace: () => Promise<void> = async () => {},
+  /** The Pub/Sub topic a watch asks Gmail to push to, or null for none. */
+  topic: string | null = null,
 ): Mailbox {
   return {
-    capabilities: GMAIL_CAPABILITIES,
+    capabilities: topic === null ? GMAIL_UNWATCHED : GMAIL_CAPABILITIES,
     // Gmail's change cursor is its `historyId`.
     historyCursor: () =>
       guard("cursor", async () => {
@@ -415,8 +425,11 @@ export function mailboxOver(
           pageSize,
         }),
       ),
-    watch: (topic) =>
-      guard("watch", async () => {
+    watch: async () => {
+      // Before the guard, which would read it as Gmail failing: the core
+      // never asks a mailbox that declares no push.
+      if (topic === null) throw new Error("no topic to push to");
+      return guard("watch", async () => {
         // Every change, not a label's: an event is any arrival, and the sync
         // asks history for additions alone.
         const { data } = await provider.users.watch({
@@ -428,7 +441,8 @@ export function mailboxOver(
           throw new Error("no expiration");
         }
         return { expiresAt: new Date(expiresAt) };
-      }),
+      });
+    },
     matching: (scope, options = {}) =>
       guard(
         "matching",
@@ -877,8 +891,10 @@ export async function openMailbox(
   const credentials = new auth.OAuth2();
   credentials.setCredentials({ access_token: token });
   const pacer = deps.pacer ?? readPacer;
-  return mailboxOver(createClient(credentials), () =>
-    pacer.wait(ref.accountId),
+  return mailboxOver(
+    createClient(credentials),
+    () => pacer.wait(ref.accountId),
+    deps.topic ?? null,
   );
 }
 
