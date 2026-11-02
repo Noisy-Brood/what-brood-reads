@@ -73,6 +73,26 @@ export interface MailboxSize {
  * `capabilities`, which is how the core is to choose each verb's path (D14 §4)
  * rather than finding a verb missing in front of the person (DD16 §4).
  */
+/**
+ * What a notice from a watch the provider tells apart by an id says of it
+ * (D22 §4): something in the mailbox changed; the provider dropped notices,
+ * so read the changes to catch up; or the watch is gone or wants renewing,
+ * so make it due and catch up.
+ */
+export type WatchNotice = "changed" | "missed" | "due";
+
+/** A watch made or renewed (#1180). */
+export interface Watch {
+  expiresAt: Date;
+  /**
+   * A new watch the provider tells apart by an id, and the secret every
+   * notice of it carries. The core keeps the id and the secret's hash, never
+   * the secret. Absent where the watch held was renewed, or the provider gives
+   * its watches no id, as Gmail does.
+   */
+  made?: { id: string; secret: string };
+}
+
 export interface Mailbox {
   /** What this provider can do, declared once by its adapter. */
   readonly capabilities: Capabilities;
@@ -109,8 +129,11 @@ export interface Mailbox {
    * to push declares `pushes` false and is never asked (#1180). It lasts
    * until `expiresAt`, and a watch that lapses looks exactly like a quiet
    * mailbox (DD1 §4.2).
+   *
+   * `current` is the provider's id for the watch the core holds, where it
+   * gave one, so a renewal renews that watch and no other.
    */
-  watch(): Promise<{ expiresAt: Date }>;
+  watch(current: string | null): Promise<Watch>;
   /**
    * The mailbox's own addresses, as far as the provider will say: the primary,
    * and every alias it has verified as the person's. An unverified one is left

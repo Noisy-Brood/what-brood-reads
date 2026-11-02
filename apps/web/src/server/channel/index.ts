@@ -36,6 +36,8 @@ export type {
   Mailbox,
   MailboxOpener,
   MailboxSize,
+  Watch,
+  WatchNotice,
 } from "./mailbox";
 export type {
   AdoptedRule,
