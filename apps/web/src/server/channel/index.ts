@@ -16,6 +16,7 @@ export {
 export {
   HOME_PARENT,
   homeAtProvider,
+  homeShownAt,
   QUIETED_AT_PROVIDER,
   quietedHomeAtProvider,
 } from "./homes";

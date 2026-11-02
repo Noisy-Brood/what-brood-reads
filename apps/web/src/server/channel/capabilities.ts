@@ -15,6 +15,12 @@ export interface Capabilities {
   rulesActBeforeDelivery: boolean;
   /** A rule can be changed in place, or only replaced by a new one. */
   rulesEditable: boolean;
+  /**
+   * A home can be renamed in place, so quieting moves it under Brood's
+   * quieted parent (#393). Without it, a quieted home keeps its name and its
+   * mail stays filed under it (Tim, on #1180's 4a design note).
+   */
+  renamesHomes: boolean;
   /** Items can be taken out of view, and put back. */
   canMove: boolean;
   /** A classification can be applied to items already received. */

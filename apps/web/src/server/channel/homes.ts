@@ -57,3 +57,19 @@ export function quietedHomeAtProvider(path: string): string {
   const home = homeAtProvider(path);
   return `${QUIETED_AT_PROVIDER}/${home.slice(HOME_PARENT.length + 1)}`;
 }
+
+/**
+ * The name a home has in a mailbox as it is shown there now: moved under
+ * `brood/quieted/` while quieted where the provider renames homes in place
+ * (`renamesHomes`), and its own name otherwise, since a home a provider
+ * cannot rename keeps its name when quieted (#1180).
+ */
+export function homeShownAt(
+  path: string,
+  shown: "active" | "quieted",
+  renamesHomes: boolean,
+): string {
+  return shown === "quieted" && renamesHomes
+    ? quietedHomeAtProvider(path)
+    : homeAtProvider(path);
+}

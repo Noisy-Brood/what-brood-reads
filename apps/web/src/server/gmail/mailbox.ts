@@ -364,6 +364,8 @@ export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
   installsRules: true,
   rulesActBeforeDelivery: true,
   rulesEditable: false,
+  // A label is renamed in place, its id kept (DD1 §8).
+  renamesHomes: true,
   canMove: true,
   canClassifyRetroactively: true,
   supportsMultipleClassifications: true,

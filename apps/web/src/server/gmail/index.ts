@@ -42,6 +42,8 @@ export type { OAuthClient } from "./oauth";
 // Connecting, opening and revoking are reached through the port's `Provider`
 // (#1180), so the functions behind it stay inside.
 export type { MailboxDeps } from "./mailbox";
+// What Gmail can do, for the registry to say of a mailbox it has not opened.
+export { GMAIL_CAPABILITIES } from "./mailbox";
 // The port's `Provider`, for the registry (`server/providers.ts`), and for
 // connect's tests, which read Google's own consent address.
 export { gmailProvider } from "./provider";
