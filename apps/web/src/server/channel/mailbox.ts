@@ -208,11 +208,12 @@ export interface Mailbox {
   ): Promise<string>;
   /**
    * Put a rule with `scope` in place of `providerRuleId`, filing into the same
-   * home, and return the new rule's id. The provider cannot edit a rule, so the
-   * new one is made first and the old one then removed; if that removal fails,
-   * the new one is removed too and the call fails, so the provider never holds
-   * two rules for one record. A rule no longer at the provider throws
-   * `RuleNotFoundError`, before anything is made.
+   * home, and return its id. A provider that can edit a rule (`rulesEditable`)
+   * edits it, and the id stays. One that cannot makes the new one first and
+   * then removes the old; if that removal fails, the new one is removed too
+   * and the call fails, so the provider never holds two rules for one record.
+   * A rule no longer at the provider throws `RuleNotFoundError`, before
+   * anything is made.
    */
   replaceRule(
     providerRuleId: string,

@@ -30,25 +30,15 @@ import type {
   RuleIdentity,
   RuleScope,
 } from "../channel";
-import { UnrenderableRuleError } from "../channel";
-const LABEL = "[a-z0-9](?:[a-z0-9-]*[a-z0-9])?";
-const DOMAIN = new RegExp(`^(?:${LABEL}\\.)+[a-z]{2,63}$`);
-const LOCAL = /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9_+-])?$/;
-
-function plainDomain(value: string): string {
-  if (!DOMAIN.test(value)) throw new UnrenderableRuleError();
-  return value;
-}
-
-function plainAddress(value: string): string {
-  const at = value.lastIndexOf("@");
-  if (at <= 0 || !LOCAL.test(value.slice(0, at))) {
-    throw new UnrenderableRuleError();
-  }
-  plainDomain(value.slice(at + 1));
-  return value;
-}
-
+import {
+  identityHex,
+  isPlainAddress,
+  isPlainDomain,
+  plainAddress,
+  plainDomain,
+  ruleIdOfHex,
+  UnrenderableRuleError,
+} from "../channel";
 /** One sender term. */
 const term = (kind: "address" | "domain", value: string): string =>
   kind === "address"
@@ -98,14 +88,7 @@ const TAG = /^nb-([0-9a-f]{12})([0-9a-f]{32})\.invalid$/;
  * matched exactly what it matched without (#291).
  */
 export function ruleTag(identity: RuleIdentity): string {
-  const hex = identity.ruleId.replaceAll("-", "").toLowerCase();
-  if (
-    !/^[0-9a-f]{12}$/.test(identity.installation) ||
-    !/^[0-9a-f]{32}$/.test(hex)
-  ) {
-    throw new UnrenderableRuleError();
-  }
-  return `nb-${identity.installation}${hex}.invalid`;
+  return `nb-${identityHex(identity)}.invalid`;
 }
 
 /**
@@ -132,15 +115,9 @@ export function ownRuleOf(
 function namedBy(rule: ProviderRule): OwnRule | null {
   const from = (rule.criteria?.from ?? "").trim().toLowerCase();
   // Plain as Brood's own rules are plain: the same patterns `term` renders by.
-  const at = from.lastIndexOf("@");
-  if (
-    at > 0 &&
-    LOCAL.test(from.slice(0, at)) &&
-    DOMAIN.test(from.slice(at + 1))
-  )
-    return { kind: "address", value: from };
+  if (isPlainAddress(from)) return { kind: "address", value: from };
   const domain = from.startsWith("@") ? from.slice(1) : from;
-  return DOMAIN.test(domain) ? { kind: "domain", value: domain } : null;
+  return isPlainDomain(domain) ? { kind: "domain", value: domain } : null;
 }
 
 /**
@@ -322,7 +299,7 @@ export function broodCriteriaOf(
   return {
     identity: {
       installation: installation!,
-      ruleId: `${h!.slice(0, 8)}-${h!.slice(8, 12)}-${h!.slice(12, 16)}-${h!.slice(16, 20)}-${h!.slice(20)}`,
+      ruleId: ruleIdOfHex(h!),
     },
     from: { kind: value.includes("@") ? "address" : "domain", value },
     exclude,

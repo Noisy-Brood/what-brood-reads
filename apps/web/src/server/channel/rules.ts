@@ -20,6 +20,13 @@ export interface RuleScope {
    * GitHub's `security_alert`.
    */
   excludeCc?: readonly string[];
+  /**
+   * For a domain at a provider that cannot match one (`searchesByDomain`):
+   * the addresses under it the index has seen, its carve-outs taken out, in
+   * order. The rule matches these exactly, and the sweep edits it as the
+   * index learns more (#1180, Tim on its 4b design note).
+   */
+  senders?: readonly string[];
 }
 
 /**
@@ -105,4 +112,10 @@ export interface BroodRule {
   exclude: string[];
   /** Its `cc:` carve-outs' addresses, sorted: the same, for copied addresses. */
   excludeCc: string[];
+  /**
+   * For a domain rule at a provider that cannot match one: the addresses it
+   * matches as the provider holds them, sorted, for the sweep to bring up to
+   * the index's (`RuleScope.senders`).
+   */
+  senders?: string[];
 }

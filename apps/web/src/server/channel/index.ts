@@ -21,6 +21,14 @@ export {
 } from "./homes";
 export type { ProviderFailure } from "./errors";
 export {
+  identityHex,
+  isPlainAddress,
+  isPlainDomain,
+  plainAddress,
+  plainDomain,
+  ruleIdOfHex,
+} from "./render";
+export {
   AuthorizationError,
   GrantNotRevokedError,
   PartialGrantError,
