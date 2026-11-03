@@ -167,7 +167,14 @@ export async function redeemCode(
     code,
     codeVerifier,
     fetchFn,
-  );
+  ).catch((e: unknown) => {
+    // Google answered the exchange, so it may have minted a grant whose
+    // refresh token Brood cannot read back to revoke: the grant is the
+    // person's to remove. A refused exchange answers with no token at all.
+    throw e instanceof AuthorizationError && e.status === 200
+      ? new GrantNotRevokedError(e.code)
+      : e;
+  });
   // Before anything is read with it: a partial grant connects nothing (#598).
   const missing = missingScopes(scope);
   if (missing.length > 0) {
