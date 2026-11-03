@@ -118,4 +118,11 @@ export interface BroodRule {
    * the index's (`RuleScope.senders`).
    */
   senders?: string[];
+  /**
+   * The rule names no sender at all: the person deleted the last one it
+   * listed, and a rule with no condition may act on every message (review
+   * of #1569). Always rewritten, to the placeholder that files nothing if
+   * no sender is left to list.
+   */
+  unconditioned?: true;
 }
