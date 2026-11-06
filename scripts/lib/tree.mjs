@@ -1,6 +1,6 @@
 // Read text files from the working tree the way `grep -rI` did.
 //
-// Checks that were inline shell in verify.sh could not be pointed at a fixture,
+// Checks that were inline shell could not be pointed at a fixture,
 // so nothing could test them (#176). They are modules now, and this is what they
 // share. It keeps the semantics that mattered:
 //
