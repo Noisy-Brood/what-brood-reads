@@ -33,6 +33,8 @@ export interface ListOptions {
    * internal clock and so agrees with `internalDate`.
    */
   query?: string;
+  /** Only events under all of these labels (D26's return, by the home's id). */
+  labelIds?: string[];
   pageToken?: string;
   pageSize?: number;
 }
@@ -45,6 +47,7 @@ export async function listEventIds(
   const { data } = await client.users.messages.list({
     userId: "me",
     q: options.query,
+    ...(options.labelIds ? { labelIds: options.labelIds } : {}),
     pageToken: options.pageToken,
     maxResults: options.pageSize,
   });

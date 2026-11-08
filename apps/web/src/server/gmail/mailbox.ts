@@ -31,6 +31,7 @@ import {
   type ProviderRule,
   renderRule,
   searchFor,
+  waitingFor,
 } from "./rules";
 import {
   type Capabilities,
@@ -371,6 +372,7 @@ export const GMAIL_CAPABILITIES: Capabilities = Object.freeze({
   supportsMultipleClassifications: true,
   // `from:` takes a domain and everything under it (DD1 §7.5).
   searchesByDomain: true,
+  returnsBatches: true,
   incrementalSync: true,
   // Through Pub/Sub, to the topic the provider is built with (DD1 §4.2).
   pushes: true,
@@ -455,6 +457,18 @@ export function mailboxOver(
         () =>
           listEventIds(provider, {
             query: searchFor(scope),
+            pageToken: options.pageToken ?? undefined,
+            pageSize: options.pageSize,
+          }),
+        { paged: options.pageToken != null },
+      ),
+    waitingInHome: (scope, homeId, since, options = {}) =>
+      guard(
+        "matching",
+        () =>
+          listEventIds(provider, {
+            query: waitingFor(scope, since),
+            labelIds: [homeId],
             pageToken: options.pageToken ?? undefined,
             pageSize: options.pageSize,
           }),

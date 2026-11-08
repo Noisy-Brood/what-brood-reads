@@ -33,6 +33,11 @@ export interface Capabilities {
    * provider matches each (#1180).
    */
   searchesByDomain: boolean;
+  /**
+   * What waits in a home can be found and returned together at the person's
+   * hours (D26, #741). Declared false, a home there is never offered batching.
+   */
+  returnsBatches: boolean;
   /** A cheap delta of changes, or only a full re-enumeration. */
   incrementalSync: boolean;
   /**

@@ -156,6 +156,18 @@ export interface Mailbox {
    */
   matching(scope: RuleScope, options?: PageOptions): Promise<ListPage>;
   /**
+   * One page of what waits in the home `homeId` to return at the person's
+   * hours (D26, #741): ids only, of unread events a rule with this scope filed
+   * there since `since`, out of the inbox, and never in spam or the bin. Only
+   * where `returnsBatches` is declared.
+   */
+  waitingInHome(
+    scope: RuleScope,
+    homeId: string,
+    since: Date,
+    options?: PageOptions,
+  ): Promise<ListPage>;
+  /**
    * The provider's id for the home at `path`, made if it is absent (DD1 §8:
    * reconcile before creating). The adapter names it at the provider, under a
    * `brood` parent (#304; Gmail's `homeAtProvider`). Each parent is found or

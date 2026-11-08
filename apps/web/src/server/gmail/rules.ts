@@ -366,6 +366,22 @@ export function heldAsSent(
 }
 
 /**
+ * The search that finds what waits to return at the person's hours (D26): the
+ * rule's own, so a home's listing can only ever name that sender's mail, out
+ * of the inbox and unread. Spam and the bin are refused here because Google
+ * states no default for `includeSpamTrash` (`messages.list`'s reference).
+ */
+export function waitingFor(scope: RuleScope, since: Date): string {
+  return [
+    searchFor(scope),
+    "-in:inbox -in:spam -in:trash is:unread",
+    // Up to the next whole second: Google names a second, and mail in the part
+    // of one before the window opened must not count as inside it (D26 §2).
+    `after:${Math.ceil(since.getTime() / 1000)}`,
+  ].join(" ");
+}
+
+/**
  * The search that finds what the rule would have filed, for the retroactive pass:
  * the query, less the carve-outs. Drafts are left out, as the window's listing
  * leaves them out, because a draft reached nobody.
