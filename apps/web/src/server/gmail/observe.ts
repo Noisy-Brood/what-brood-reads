@@ -140,6 +140,8 @@ export async function readEvent(
   client: ProviderClient,
   providerEventId: string,
   options: ReadOptions,
+  /** The ids of the person's own labels, which `labelIds` is narrowed to (D29 §4). */
+  ownPlaces: ReadonlySet<string>,
 ): Promise<ObservedEvent> {
   const { data } = await client.users.messages.get({
     format: "metadata",
@@ -151,5 +153,5 @@ export async function readEvent(
     id: providerEventId,
   });
 
-  return deriveEvent(data, options.accountAddresses);
+  return deriveEvent(data, options.accountAddresses, ownPlaces);
 }

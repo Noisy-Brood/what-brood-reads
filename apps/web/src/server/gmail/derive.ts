@@ -12,6 +12,7 @@ import {
   MissingArrivalTimeError,
   type ObservedEvent,
   type Placement,
+  type Sorting,
 } from "../channel";
 
 /**
@@ -44,6 +45,7 @@ export class MissingProviderEventIdError extends Error {
 export function deriveEvent(
   message: ProviderMessage,
   accountAddresses: readonly string[],
+  ownPlaces: ReadonlySet<string>,
 ): ObservedEvent {
   // Checked first, and refused rather than defaulted. `?? ""` satisfied the
   // type and broke the promise the type makes: `providerEventId` is documented
@@ -147,7 +149,7 @@ export function deriveEvent(
             ? "cc"
             : "neither",
 
-    placement: placementOf(message.labelIds ?? []),
+    placement: placementOf(message.labelIds ?? [], ownPlaces),
   };
 }
 
@@ -156,13 +158,38 @@ export function deriveEvent(
  * never takes mail out of either: a sender a pattern matches can be forged, and
  * what the provider judged spam stays there.
  */
-function placementOf(labels: readonly string[]): Placement {
+function placementOf(
+  labels: readonly string[],
+  ownPlaces: ReadonlySet<string>,
+): Placement {
   return {
     inView: labels.includes("INBOX"),
     setAside: labels.includes("SPAM") || labels.includes("TRASH"),
     filedUnder: [...labels],
+    arranged: {
+      sortedAs:
+        labels.map((l) => SORTED_AS[l]).find((s) => s !== undefined) ?? null,
+      // Only the ids the label list says are the person's (`type: user`, and
+      // not Brood's homes): Gmail says its own list of system labels is not
+      // exhaustive, so anything not known to be theirs, UNREAD among it, is
+      // left out rather than guessed at.
+      keptUnder: labels.filter((l) => ownPlaces.has(l)),
+    },
   };
 }
+
+/**
+ * Gmail's category labels, which are its inbox tabs, in Brood's words
+ * (`google-2026-gmail-labels-guide`: "Corresponds to messages that are displayed in
+ * the Personal tab", and so on for each).
+ */
+const SORTED_AS: Readonly<Record<string, Sorting>> = {
+  CATEGORY_PERSONAL: "personal",
+  CATEGORY_SOCIAL: "social",
+  CATEGORY_PROMOTIONS: "promotions",
+  CATEGORY_UPDATES: "updates",
+  CATEGORY_FORUMS: "forums",
+};
 
 /**
  * `Message-ID` as `<id@host>`; store the addr-spec inside.

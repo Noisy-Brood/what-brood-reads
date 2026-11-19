@@ -122,6 +122,30 @@ export async function oldestMail(
   return new Date(lo);
 }
 
+/**
+ * The ids of the person's own labels: what a read keeps of where a message
+ * is kept (D29 §4). The label list's `type` says which are the person's or an
+ * app's, and the name, read here and kept nowhere, leaves Brood's homes out,
+ * so the audit never credits the person with Brood's filing. A home renamed
+ * out of Brood's parent counts as theirs, as D21 §2 treats it. A listing
+ * carries each label's id, name and type (`google-2026-gmail-labels-list`).
+ */
+async function ownLabelIds(
+  provider: ProviderClient,
+): Promise<ReadonlySet<string>> {
+  const { data } = await provider.users.labels.list({
+    userId: "me",
+    fields: "labels(id,name,type)",
+  });
+  const brood = (name: string) =>
+    name === HOME_PARENT || name.startsWith(`${HOME_PARENT}/`);
+  return new Set(
+    (data.labels ?? [])
+      .filter((l) => l.type === "user" && l.id && !brood(l.name ?? ""))
+      .map((l) => l.id!),
+  );
+}
+
 /** The user's labels by name, which is how a home is found (DD1 §8). */
 async function homesByName(
   provider: ProviderClient,
@@ -391,6 +415,16 @@ export function mailboxOver(
   /** The Pub/Sub topic a watch asks Gmail to push to, or null for none. */
   topic: string | null = null,
 ): Mailbox {
+  // Read once for the mailbox as opened, for every read's placement; a label
+  // made, or renamed into or out of Brood's parent, while it is open is read
+  // as it was until the next opening, a step later (review of #1789). A
+  // failed read is not kept, so the next message asks again.
+  let own: Promise<ReadonlySet<string>> | null = null;
+  const ownPlaces = () =>
+    (own ??= guard("home", () => ownLabelIds(provider)).catch((e) => {
+      own = null;
+      throw e;
+    }));
   return {
     capabilities: topic === null ? GMAIL_UNWATCHED : GMAIL_CAPABILITIES,
     // Gmail's change cursor is its `historyId`.
@@ -415,7 +449,8 @@ export function mailboxOver(
       ),
     read: async (id, options) => {
       await pace();
-      return guard("read", () => readEvent(provider, id, options), {
+      const places = await ownPlaces();
+      return guard("read", () => readEvent(provider, id, options, places), {
         byId: true,
       });
     },

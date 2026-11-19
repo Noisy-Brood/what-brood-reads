@@ -42,9 +42,11 @@ export type {
   ListPage,
   MovedEvent,
   ObservedEvent,
+  Arrangement,
   PageOptions,
   Placement,
   ReadOptions,
+  Sorting,
   WindowOptions,
 } from "./events";
 export type {

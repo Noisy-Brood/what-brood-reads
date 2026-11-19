@@ -90,8 +90,8 @@ export interface ObservedEvent {
 
   /**
    * Where the provider has the event as it is read (#442). What rescue decides
-   * by, and not stored: where mail sits changes after it arrives, and an event
-   * is a fact about arrival.
+   * by. Its inbox, sorting and the person's own places are stored as of the
+   * read, for the audit (D29 §4); the handles of everything else are not.
    */
   placement: Placement;
 }
@@ -110,7 +110,29 @@ export interface Placement {
    * compared only with the handles of Brood's own homes.
    */
   filedUnder: string[];
+  /**
+   * How the mailbox is arranged around the event, for the audit (D29 §4):
+   * null where the provider's adapter does not read it, which is stored as
+   * not known rather than as nothing.
+   */
+  arranged: Arrangement | null;
 }
+
+/** Where the person and the provider keep an event, in Brood's nouns (D29 §4). */
+export interface Arrangement {
+  /** The provider's sorting of the inbox's mail: Gmail's tabs. Null for none. */
+  sortedAs: Sorting | null;
+  /**
+   * The handles of the person's own places the event is kept under, a subset
+   * of `filedUnder` with the provider's places and Brood's homes left out.
+   * Never a name.
+   */
+  keptUnder: string[];
+}
+
+/** The provider's sorting of the inbox's mail (D29 §4), in Brood's words. */
+export type Sorting =
+  "personal" | "social" | "promotions" | "updates" | "forums";
 
 export interface ListPage {
   /** Provider ids, for `Mailbox.read`. */
