@@ -123,27 +123,37 @@ export async function oldestMail(
 }
 
 /**
- * The ids of the person's own labels: what a read keeps of where a message
- * is kept (D29 §4). The label list's `type` says which are the person's or an
- * app's, and the name, read here and kept nowhere, leaves Brood's homes out,
- * so the audit never credits the person with Brood's filing. A home renamed
- * out of Brood's parent counts as theirs, as D21 §2 treats it. A listing
- * carries each label's id, name and type (`google-2026-gmail-labels-list`).
+ * The person's own labels, by id and name: the label list's `type` says which
+ * are the person's or an app's, and the name leaves Brood's homes out, so the
+ * audit never credits the person with Brood's filing. A home renamed out of
+ * Brood's parent counts as theirs, as D21 §2 treats it. A listing carries
+ * each label's id, name and type (`google-2026-gmail-labels-list`). The names
+ * are returned to be read and kept nowhere (D29 §4).
  */
-async function ownLabelIds(
+async function ownLabels(
   provider: ProviderClient,
-): Promise<ReadonlySet<string>> {
+): Promise<{ id: string; name: string }[]> {
   const { data } = await provider.users.labels.list({
     userId: "me",
     fields: "labels(id,name,type)",
   });
   const brood = (name: string) =>
     name === HOME_PARENT || name.startsWith(`${HOME_PARENT}/`);
-  return new Set(
-    (data.labels ?? [])
-      .filter((l) => l.type === "user" && l.id && !brood(l.name ?? ""))
-      .map((l) => l.id!),
+  return (data.labels ?? []).flatMap((l) =>
+    l.type === "user" && l.id && !brood(l.name ?? "")
+      ? [{ id: l.id, name: l.name ?? "" }]
+      : [],
   );
+}
+
+/** How many labels' counts the audit asks for at once. */
+const LABEL_COUNTS_AT_ONCE = 8;
+
+/** The ids of the person's own labels: what a read keeps of where a message is kept (D29 §4). */
+async function ownLabelIds(
+  provider: ProviderClient,
+): Promise<ReadonlySet<string>> {
+  return new Set((await ownLabels(provider)).map((l) => l.id));
 }
 
 /** The user's labels by name, which is how a home is found (DD1 §8). */
@@ -576,6 +586,40 @@ export function mailboxOver(
           if (id) found.set(parent, id);
         }
         return found;
+      }),
+    ownHomes: () =>
+      guard("home", async () => {
+        const labels = await ownLabels(provider);
+        const homes = [];
+        // A few at a time, so a mailbox of hundreds of labels does not hold
+        // the audit's pass a request per label (review of the audit's labels).
+        for (let i = 0; i < labels.length; i += LABEL_COUNTS_AT_ONCE)
+          homes.push(
+            ...(await Promise.all(
+              labels.slice(i, i + LABEL_COUNTS_AT_ONCE).map(async (l) => {
+                // A listing leaves the count out
+                // (`google-2026-gmail-labels-list`), so each is asked for it
+                // alone: `messagesTotal` and nothing else, so no unread count
+                // is read (D29 §4, `google-2026-gmail-labels`).
+                const { data } = await provider.users.labels.get({
+                  userId: "me",
+                  id: l.id,
+                  fields: "messagesTotal",
+                });
+                return { ...l, messages: data.messagesTotal ?? 0 };
+              }),
+            )),
+          );
+        return homes;
+      }),
+    homeNames: (ids) =>
+      guard("home", async () => {
+        const asked = new Set(ids);
+        return new Map(
+          (await ownLabels(provider))
+            .filter((l) => asked.has(l.id))
+            .map((l) => [l.id, l.name]),
+        );
       }),
     installRule: (scope, homeId, identity) =>
       guard("rule", () => createRule(provider, scope, [homeId], identity)),

@@ -39,6 +39,13 @@ import type { OneClick } from "./unsubscribe";
 export type HomeColour = "blue" | "green" | "lavender" | "gold" | "muted";
 
 /**
+ * One of the person's own homes, for the audit (D29 §4): its id, every
+ * message under it, and its name, which the core reads to recognise what
+ * another product left and keeps nowhere.
+ */
+export type OwnHome = { id: string; messages: number; name: string };
+
+/**
  * The parents Brood makes to hold homes, which are not homes themselves
  * (#1124): `root`, the one every home sits under, and `external`, the one the
  * homes on the `external/` path sit under. Each takes the shared tint and
@@ -208,6 +215,18 @@ export interface Mailbox {
    * is read and set by id with `homeColour` and `colourHome`, as a home's is.
    */
   parentHomes(): Promise<Map<HomeParent, string>>;
+  /**
+   * The person's own homes, Brood's left out, each with every message under
+   * it, for the audit (D29 §4). Null where the provider gives no such count.
+   * Nothing else a home holds is read: no unread count, and no message.
+   */
+  ownHomes(): Promise<OwnHome[] | null>;
+  /**
+   * The names of the person's own homes among `ids`, by id, for a page to
+   * show as it renders and keep nowhere (D29 §4). One the provider no longer
+   * has is left out.
+   */
+  homeNames(ids: readonly string[]): Promise<Map<string, string>>;
   /**
    * Install a rule that files what `scope` matches into `homeId`, out of view:
    * the home added and the inbox removed, before delivery. Returns the

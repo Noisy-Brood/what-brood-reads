@@ -55,6 +55,7 @@ export type {
   Mailbox,
   MailboxOpener,
   MailboxSize,
+  OwnHome,
   Watch,
   WatchNotice,
 } from "./mailbox";
