@@ -217,14 +217,16 @@ export interface Mailbox {
   parentHomes(): Promise<Map<HomeParent, string>>;
   /**
    * The person's own homes, Brood's left out, each with every message under
-   * it, for the audit (D29 §4). Null where the provider gives no such count.
-   * Nothing else a home holds is read: no unread count, and no message.
+   * it, for the audit (D29 §4). Null where the provider gives no such count;
+   * `too_many` where there are more than an adapter counts in one read, so a
+   * read stays inside the audit's pass (#1810). Nothing else a home holds is
+   * read: no unread count, and no message.
    */
-  ownHomes(): Promise<OwnHome[] | null>;
+  ownHomes(): Promise<OwnHome[] | "too_many" | null>;
   /**
    * The names of the person's own homes among `ids`, by id, for a page to
-   * show as it renders and keep nowhere (D29 §4). One the provider no longer
-   * has is left out.
+   * show as it renders and keep nowhere (D29 §4). One that the provider no
+   * longer has is left out.
    */
   homeNames(ids: readonly string[]): Promise<Map<string, string>>;
   /**

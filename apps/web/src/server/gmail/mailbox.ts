@@ -75,6 +75,13 @@ import {
 /** The most homes a size read counts, one request each. */
 export const MAX_HOMES_COUNTED = 100;
 
+/**
+ * The most of the person's own labels the audit counts, one request each,
+ * eight at a time: past it, none is counted, so one mailbox cannot hold the
+ * audit's pass past its budget (#1810).
+ */
+export const MAX_OWN_HOMES_COUNTED = 500;
+
 /** A day as Gmail's search help writes one: YYYY/MM/DD. */
 export const gmailDate = (ms: number) =>
   new Date(ms).toISOString().slice(0, 10).replace(/-/g, "/");
@@ -590,6 +597,9 @@ export function mailboxOver(
     ownHomes: () =>
       guard("home", async () => {
         const labels = await ownLabels(provider);
+        // One request each: past the bound, none is counted (#1810), as
+        // `size` does for Brood's own homes.
+        if (labels.length > MAX_OWN_HOMES_COUNTED) return "too_many" as const;
         const homes = [];
         // A few at a time, so a mailbox of hundreds of labels does not hold
         // the audit's pass a request per label (review of the audit's labels).
